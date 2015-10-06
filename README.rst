@@ -1,4 +1,4 @@
-.. image:: https://raw.githubusercontent.com/score-framework/py.doc/master/doc/score-banner.png
+.. image:: https://raw.githubusercontent.com/score-framework/py.doc/master/docs/score-banner.png
     :target: http://score-framework.org
 
 `The SCORE Framework`_ is a collection of harmonized python and javascript
@@ -17,6 +17,11 @@ an auto-initializer for a list of SCORE modules, as well as helper functions
 supporting the initialization process of individual packages.
 
 __ http://www.score-framework.org/doc/devguide/python.html#module-initialization
+
+The `narrative documentation of score.init`__ contains all the information you
+need to put this module to good use.
+
+__ http://www.score-framework.org/doc/python/init/
 
 
 License
