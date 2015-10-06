@@ -16,7 +16,7 @@ This python package provides helper functions that allow implementing the
 an auto-initializer for a list of SCORE modules, as well as helper functions
 supporting the initialization process of individual packages.
 
-__ http://score-framework.org/doc/introduction.html#module-initialization
+__ http://www.score-framework.org/doc/devguide/python.html#module-initialization
 
 
 License
