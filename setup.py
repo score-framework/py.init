@@ -34,7 +34,7 @@ with open(os.path.join(here, 'README.rst')) as f:
 
 setup(
     name='score.init',
-    version='0.2.7',
+    version='0.2.8',
     description='Automatic initialization of The SCORE Framework',
     long_description=README,
     author='strg.at',
@@ -42,6 +42,8 @@ setup(
     url='http://score-framework.org',
     keywords='score framework initializer',
     packages=['score.init'],
+    namespace_packages=['score'],
+    zip_safe=False,
     license='LGPL',
     classifiers=[
         'Development Status :: 4 - Beta',
