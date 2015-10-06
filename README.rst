@@ -1,4 +1,4 @@
-.. image:: https://raw.githubusercontent.com/score-framework/doc/master/doc/score-banner.png
+.. image:: https://raw.githubusercontent.com/score-framework/py.doc/master/doc/score-banner.png
     :target: http://score-framework.org
 
 `The SCORE Framework`_ is a collection of harmonized python and javascript
