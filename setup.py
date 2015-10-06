@@ -47,7 +47,6 @@ setup(
         'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Environment :: Web Environment',
-        'Framework :: SCORE',
         'Framework :: Pyramid',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Lesser General '
