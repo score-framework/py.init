@@ -187,6 +187,7 @@ def _init(load_modules, confdict, init_module):
         missing = set(filter_) - names
         if missing:
             raise ConfigurationError(
+                __package__,
                 'Could not find the following modules:\n - ' +
                 '\n - '.join(missing))
     graph = nx.DiGraph()
