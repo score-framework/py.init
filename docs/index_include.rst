@@ -22,6 +22,8 @@ Configuration
 
 .. autofunction:: score.init.init_from_file
 
+.. autofunction:: score.init.config.parse_config_file
+
 .. autoclass:: score.init.ConfiguredModule
 
 Helper functions
@@ -41,7 +43,7 @@ Helper functions
 
 .. autofunction:: score.init.extract_conf
 
-.. autofunction:: score.init.init_object
+.. autofunction:: score.init.parse_object
 
 .. autofunction:: score.init.init_cache_folder
 

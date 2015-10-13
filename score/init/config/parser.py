@@ -28,6 +28,7 @@ import configparser
 import os
 import re
 import warnings
+from ..exceptions import ConfigurationError
 
 
 def parse(file):
@@ -167,7 +168,6 @@ def _parse(file, visited):
     visited.append(os.path.realpath(file))
     base = os.path.realpath(base)
     if base in visited:
-        from score.init import ConfigurationError
         raise ConfigurationError(
             __package__,
             'Configuration file loop:\n - ' + '\n - '.join(visited))
@@ -224,7 +224,6 @@ def _apply_adjustments(settings, adjustments):
                 try:
                     original = settings[section][key]
                 except KeyError as e:
-                    from score.init import ConfigurationError
                     raise ConfigurationError(
                         __package__,
                         'Original value of diff-adjustment to %s/%s not found' %
@@ -236,7 +235,6 @@ def _apply_adjustments(settings, adjustments):
                 try:
                     original = settings[section][key]
                 except KeyError as e:
-                    from score.init import ConfigurationError
                     raise ConfigurationError(
                         __package__,
                         'Original value of replace-adjustment to %s/%s '
@@ -265,7 +263,6 @@ def _apply_diff(section, key, original, diff):
             try:
                 anchor = lines.index(line) + 1
             except ValueError as e:
-                from score.init import ConfigurationError
                 raise ConfigurationError(
                     __package__,
                     'Error parsing diff in %s/%s: line does not exist in base'
@@ -275,7 +272,6 @@ def _apply_diff(section, key, original, diff):
             try:
                 anchor = lines.index(line[1:])
             except ValueError as e:
-                from score.init import ConfigurationError
                 raise ConfigurationError(
                     __package__,
                     'Error parsing diff in %s/%s: line does not exist in base'
@@ -296,7 +292,6 @@ def _apply_replace(section, key, original, definition):
     while original[start:]:
         match = _replace_regex.match(definition, start)
         if not match:
-            from score.init import ConfigurationError
             raise ConfigurationError(
                 __package__,
                 'Adjustment value for %s/%s contains invalid replacements' %

@@ -35,6 +35,8 @@ import logging
 from pyramid.config import Configurator
 import re
 from setuptools import find_packages
+from .config import parse_config_file
+from .initializer import _init, _init_from_file
 
 
 log = logging.getLogger(__name__)
@@ -61,7 +63,6 @@ def init(confdict, configurator):
                 return pyramid.init(modconf, configurator, **kwargs)
         log.debug('Initializing %s' % module.__name__)
         return module.init(modconf, **kwargs)
-    from score.init import _init
     conf = _init(_get_modules, confdict, initializer)
     configurator.add_request_method(lambda _: conf, 'score', property=True)
     return conf
@@ -81,9 +82,7 @@ def init_from_file(file, overrides={}, modules=None,
     The additional `dict` parameter *pyramid_kwargs* will be passed as keyword
     arguments to the Configurator object.
     """
-    from score.init.settings import parse
-    from score.init import _init_from_file
-    settings = parse(file)
+    settings = parse_config_file(file)
     configurator = Configurator(settings=settings['app:main'], **pyramid_kwargs)
     return configurator, \
         _init_from_file(

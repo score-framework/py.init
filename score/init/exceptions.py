@@ -25,20 +25,29 @@
 # Licensee has his registered seat, an establishment or assets.
 
 
-from .exceptions import (
-    InitializationError, ConfigurationError, DependencyLoop)
+class InitializationError(Exception):
+    """
+    Base class for exceptions to raise, in case the initialization of a module
+    fails.
+    """
 
-from .initializer import (
-    init, init_from_file, ConfiguredModule)
+    def __init__(self, module, *args, **kwargs):
+        self.module = module
+        Exception.__init__(self, *args, **kwargs)
 
-from .config import (
-    parse_bool, parse_time_interval, parse_dotted_path, parse_call, parse_list,
-    parse_host_port, parse_object, init_object, init_cache_folder, extract_conf,
-    parse_config_file)
 
-__all__ = (
-    'init', 'init_from_file', 'InitializationError', 'ConfigurationError',
-    'DependencyLoop', 'ConfiguredModule', 'parse_bool', 'parse_time_interval',
-    'parse_dotted_path', 'parse_call', 'parse_list', 'parse_host_port',
-    'parse_object', 'init_object', 'init_cache_folder', 'extract_conf',
-    'parse_config_file')
+class DependencyLoop(InitializationError):
+    """
+    Thrown if a dependency loop was detected during a call to :func:`.init`.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # skip parent constructor
+        Exception.__init__(self, *args, **kwargs)
+
+
+class ConfigurationError(InitializationError):
+    """
+    The exception to raise when the initialization of a module failed due to a
+    bogus configuration.
+    """
