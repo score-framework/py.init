@@ -106,7 +106,7 @@ def init_from_file(file, overrides={}, modules=None, init_logging=True):
     The final parameter *init_logging* makes sure python's own logging
     facility is initialized with the config *file*, too.
     """
-    from score.init.iniparser import parse
+    from score.init.settings import parse
     return _init_from_file(parse(file),
                            overrides, modules, init_logging, init)
 

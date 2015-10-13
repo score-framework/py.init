@@ -81,7 +81,7 @@ def init_from_file(file, overrides={}, modules=None,
     The additional `dict` parameter *pyramid_kwargs* will be passed as keyword
     arguments to the Configurator object.
     """
-    from score.init.iniparser import parse
+    from score.init.settings import parse
     from score.init import _init_from_file
     settings = parse(file)
     configurator = Configurator(settings=settings['app:main'], **pyramid_kwargs)
