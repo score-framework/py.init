@@ -72,8 +72,8 @@ def parse(file):
 
         It is further possible to chain multiple replace actions.
 
-      - Otherwise the value is considered the replacement for the value in the
-        base configuration.
+      - Otherwise the value is considered to be the replacement for the value in
+        the base configuration.
 
     - The updated configuration is the return value of the function.
 
@@ -90,7 +90,7 @@ def parse(file):
         sqlalchemy.url = sqlite:///${here}/database.sqlite3
         destroyable = true
 
-    The following file is intended to adjust the above configuration to the
+    The next file is intended to adjust the above configuration to the
     local environment::
 
         [score.init]
@@ -104,7 +104,8 @@ def parse(file):
             <replace:\.sqlite3$:.db>
         destroyable = <delete>
 
-    The resulting configuration is if the input file looked like this::
+    The resulting configuration will behave as if the input file looked like
+    this::
 
         [score.init]
         based_on = app.conf
@@ -130,7 +131,7 @@ def parse(file):
 
         |foo     |+baz      |baz
         |bar  +  |      =>  |foo
-                            |baz
+                            |bar
 
         |foo     | bar      |foo
         |bar  +  |+baz  =>  |bar
