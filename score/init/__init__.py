@@ -106,10 +106,12 @@ def init_from_file(file, overrides={}, modules=None, init_logging=True):
     The final parameter *init_logging* makes sure python's own logging
     facility is initialized with the config *file*, too.
     """
-    return _init_from_file(file, overrides, modules, init_logging, init)
+    from score.init.iniparser import parse
+    return _init_from_file(parse(file),
+                           overrides, modules, init_logging, init)
 
 
-def _init_from_file(file, overrides, modules, init_logging, init):
+def _init_from_file(settings, overrides, modules, init_logging, init):
     """
     Helper function for harmonizing the default init process and the one
     involving pyramid. The parameters are that of :func:`.init_from_file`, the
@@ -118,13 +120,7 @@ def _init_from_file(file, overrides, modules, init_logging, init):
     """
     if init_logging:
         import logging.config
-        logging.config.fileConfig(file)
-    settings = configparser.ConfigParser(
-        interpolation=configparser.ExtendedInterpolation())
-    settings['DEFAULT']['here'] = os.path.dirname(file)
-    if not settings['DEFAULT']['here']:
-        settings['DEFAULT']['here'] = '.'
-    settings.read(file)
+        logging.config.fileConfig(settings)
     for section in overrides:
         if section not in settings:
             settings[section] = {}

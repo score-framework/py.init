@@ -29,11 +29,9 @@ This package :ref:`integrates <framework_integration>` the module with
 pyramid.
 """
 
-import configparser
 from importlib import import_module
 from inspect import signature
 import logging
-import os
 from pyramid.config import Configurator
 import re
 from setuptools import find_packages
@@ -83,16 +81,13 @@ def init_from_file(file, overrides={}, modules=None,
     The additional `dict` parameter *pyramid_kwargs* will be passed as keyword
     arguments to the Configurator object.
     """
-    settings = configparser.ConfigParser()
-    settings['DEFAULT']['here'] = os.path.dirname(file)
-    if not settings['DEFAULT']['here']:
-        settings['DEFAULT']['here'] = '.'
-    settings.read(file)
+    from score.init.iniparser import parse
+    from score.init import _init_from_file
+    settings = parse(file)
     configurator = Configurator(settings=settings['app:main'], **pyramid_kwargs)
-    import score
     return configurator, \
-        score.init._init_from_file(
-            file, overrides, modules, init_logging,
+        _init_from_file(
+            settings, overrides, modules, init_logging,
             init=lambda settings: init(settings, configurator))
 
 
