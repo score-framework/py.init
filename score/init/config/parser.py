@@ -174,7 +174,6 @@ def _parse(file, visited):
             'Configuration file loop:\n - ' + '\n - '.join(visited))
     adjustments = settings
     settings = _parse(base, visited)
-    settings.read(base)
     _apply_adjustments(settings, adjustments)
     return settings
 
