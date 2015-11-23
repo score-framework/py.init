@@ -78,9 +78,13 @@ def init(confdict, *, overrides={}, init_logging=True):
 
 def _init(confdict):
     try:
-        modules = parse_list(confdict['score.init']['modules'])
+        modconf = parse_list(confdict['score.init']['modules'])
     except KeyError:
         return ConfiguredScore(confdict, dict())
+    modules = {}
+    for line in modconf:
+        name = line[line.rindex('.') + 1:]
+        modules[name] = line
     dependency_map = _collect_dependencies(modules)
     initialized = dict()
     for module in _sorted_dependency_map(dependency_map, 'initialization'):
@@ -90,10 +94,7 @@ def _init(confdict):
             modconf = confdict[module]
         kwargs = {}
         for dep in module_dependencies:
-            if dep.startswith('score.'):
-                argname = dep[6:] + '_conf'
-            else:
-                argname = dep + '_conf'
+            argname = next(k for k, v in modules.items() if v == dep)
             kwargs[argname] = initialized[dep]
         log.debug('Initializing %s' % module)
         conf = importlib.import_module(module).init(modconf, **kwargs)
@@ -214,22 +215,22 @@ class ConfiguredScore(ConfiguredModule):
 def _collect_dependencies(modules):
     missing = []
     dependency_map = dict()
-    for name in modules:
-        if name == 'score.init':
+    for name, modname in modules.items():
+        if modname == 'score.init':
             continue
         try:
-            module = importlib.import_module(name)
+            module = importlib.import_module(modname)
         except ImportError:
-            missing.append(name)
+            missing.append(modname)
             continue
         if not hasattr(module, 'init'):
             raise InitializationError(
                 __package__,
-                'Cannot initialize %s: it has no init() function' % name)
+                'Cannot initialize %s: it has no init() function' % modname)
         if not callable(module.init):
             raise InitializationError(
                 __package__,
-                'Cannot initialize %s: its init is not a function' % name)
+                'Cannot initialize %s: its init is not a function' % modname)
         module_dependencies = []
         sig = signature(module.init)
         for i, (param_name, param) in enumerate(sig.parameters.items()):
@@ -237,24 +238,24 @@ def _collect_dependencies(modules):
                 # this should be the confdict
                 continue
             module_dependencies.append(
-                (param_name, param.default == Parameter.empty))
-        dependency_map[name] = module_dependencies
+                (param_name, param.default != Parameter.empty))
+        dependency_map[modname] = module_dependencies
     if missing:
         raise ConfigurationError(
             __package__,
             'Could not find the following modules:\n - ' +
             '\n - '.join(missing))
-    _remove_missing_optional_dependencies(dependency_map)
+    _remove_missing_optional_dependencies(modules, dependency_map)
     return dependency_map
 
 
-def _remove_missing_optional_dependencies(dependency_map):
+def _remove_missing_optional_dependencies(modules, dependency_map):
     missing = {}
     for name, module_dependencies in dependency_map.items():
         newdeps = []
         for dependency, is_optional in module_dependencies:
-            if dependency in dependency_map:
-                newdeps.append(dependency)
+            if dependency in modules:
+                newdeps.append(modules[dependency])
                 continue
             if is_optional:
                 continue
@@ -265,7 +266,7 @@ def _remove_missing_optional_dependencies(dependency_map):
     if not missing:
         return
     msglist = []
-    for dependency, dependants in missing:
+    for dependency, dependants in missing.items():
         msglist.append('%s (required by %s)' %
                        (dependency, ', '.join(dependants)))
     raise ConfigurationError(
