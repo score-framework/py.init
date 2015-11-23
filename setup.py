@@ -34,7 +34,7 @@ with open(os.path.join(here, 'README.rst')) as f:
 
 setup(
     name='score.init',
-    version='0.2.10',
+    version='0.7',
     description='Automatic initialization of The SCORE Framework',
     long_description=README,
     author='strg.at',
@@ -49,7 +49,6 @@ setup(
         'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Environment :: Web Environment',
-        'Framework :: Pyramid',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Lesser General '
             'Public License v3 or later (LGPLv3+)',
@@ -61,8 +60,5 @@ setup(
     ],
     install_requires=[
         'networkx',
-    ],
-    extras_require={
-        'pyramid': ['pyramid'],
-    },
+    ]
 )
