@@ -26,10 +26,8 @@
 
 import warnings
 import configparser
-from ..exceptions import ConfigurationError
 import os
 import re
-import sys
 import importlib
 
 
@@ -43,9 +41,7 @@ def parse_bool(value):
     try:
         return configparser.ConfigParser.BOOLEAN_STATES[value.lower()]
     except KeyError:
-        raise ConfigurationError(
-            _calling_module(),
-            'Value "%s" does not describe a boolean' % value)
+        raise ValueError('"%s" does not describe a boolean' % value)
 
 
 def parse_time_interval(value):
@@ -68,9 +64,11 @@ def parse_time_interval(value):
         'millisecond': 0.001,
         'milliseconds': 0.001,
         's': 1,
+        'sec': 1,
         'second': 1,
         'seconds': 1,
         'm': 60,
+        'min': 60,
         'minute': 60,
         'minutes': 60,
         'h': 60*60,
@@ -80,10 +78,8 @@ def parse_time_interval(value):
         'day': 60*60*24,
         'days': 60*60*24,
     }
-    config_error = ConfigurationError(
-        _calling_module(),
-        'Value "%s" does not describe a valid time interval' % value
-    )
+    config_error = ValueError(
+        '"%s" does not describe a valid time interval' % value)
     try:
         matches = re.search('^\s*(\d+)\s*([a-z]+)\s*$', value.lower())
         return float(matches.group(1)) * multiplier[matches.group(2)]
@@ -104,7 +100,10 @@ def parse_dotted_path(value):
     if not isinstance(value, str):
         return value
     module, classname = value.rsplit('.', 1)
-    return getattr(importlib.import_module(module), classname)
+    try:
+        return getattr(importlib.import_module(module), classname)
+    except ImportError:
+        raise ValueError('"%s" does not describe a valid dotted path' % value)
 
 
 def parse_call(value, args=tuple(), kwargs={}):
@@ -152,10 +151,7 @@ def parse_list(value):
     """
     if isinstance(value, list):
         return value
-    parts = value.split('\n')
-    if not parts[0].strip():
-        del parts[0]
-    return [part.strip() for part in parts]
+    return list(filter(None, (part.strip() for part in value.split('\n'))))
 
 
 def parse_host_port(value, fallback=None):
@@ -259,8 +255,8 @@ def init_cache_folder(confdict, key, autopurge=False):
     os.makedirs(folder, exist_ok=True)
     folder = os.path.realpath(folder)
     if not os.access(folder, os.R_OK | os.W_OK):
-        raise ConfigurationError(_calling_module(),
-                                 'Configured cache folder is not writable')
+        raise ValueError(
+            'Configured cache folder "%s" is not writable' % folder)
     if not autopurge:
         return folder
     confdict = dict(confdict.items())
@@ -309,18 +305,3 @@ def extract_conf(configuration, prefix, defaults=dict()):
         if key.startswith(prefix):
             conf[key[len(prefix):]] = value
     return conf
-
-
-def _calling_module():
-    file2module = dict((v.__file__, v)
-                       for k, v in sys.modules.items()
-                       if hasattr(v, '__file__'))
-    frame = sys._getframe().f_back.f_back
-    file = frame.f_code.co_filename
-    while file in file2module and \
-            file2module[file].__name__.startswith('score.init.'):
-        frame = frame.f_back
-        if frame is None:
-            return None
-        file = frame.f_code.co_filename
-    return file2module[file]
