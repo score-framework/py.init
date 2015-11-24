@@ -10,11 +10,13 @@ def test_empty():
         parse_dotted_path('\n\n')
 
 
-def test_not_valid():
+def test_invalid_value():
     with pytest.raises(ValueError):
         parse_dotted_path('foo.bar.baz')
+    with pytest.raises(ValueError):
+        parse_dotted_path('foobar')
 
 
-def test_self():
+def test_valid_self():
     assert parse_dotted_path('score.init.parse_dotted_path') == \
            parse_dotted_path

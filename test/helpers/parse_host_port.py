@@ -14,14 +14,14 @@ def test_empty():
         parse_host_port('', '\n')
 
 
-def test_not_valid():
+def test_invalid_no_port():
     with pytest.raises(ValueError):
         parse_host_port('localhost')
 
 
-def test_nofallback():
+def test_no_fallback():
     assert parse_host_port('localhost:80') == ('localhost', 80)
 
 
-def test_fallback():
+def test_with_fallback():
     assert parse_host_port('localhost', '127.0.0.1:8080') == ('localhost', 8080)

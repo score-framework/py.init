@@ -99,11 +99,15 @@ def parse_dotted_path(value):
     """
     if not isinstance(value, str):
         return value
+    value_error = ValueError(
+        '"%s" does not describe a valid dotted path' % value)
+    if '.' not in value:
+        raise value_error
     module, classname = value.rsplit('.', 1)
     try:
         return getattr(importlib.import_module(module), classname)
     except ImportError:
-        raise ValueError('"%s" does not describe a valid dotted path' % value)
+        raise value_error
 
 
 def parse_call(value, args=tuple(), kwargs={}):
@@ -220,6 +224,8 @@ def parse_object(confdict, key, args=tuple(), kwargs={}):
             "/var/www/library2",
         ])
     """
+    if key not in confdict:
+        raise ValueError('"%s" not found in confdict' % key)
     if '(' in confdict[key]:
         return parse_call(confdict[key], args, kwargs)
     cls = parse_dotted_path(confdict[key])
@@ -252,6 +258,8 @@ def init_cache_folder(confdict, key, autopurge=False):
     initialization, it will delete the contents of the folder, assuming that
     its contents have become obsolete.
     """
+    if key not in confdict:
+        raise ValueError('"%s" not found in confdict' % key)
     folder = confdict[key]
     os.makedirs(folder, exist_ok=True)
     folder = os.path.realpath(folder)

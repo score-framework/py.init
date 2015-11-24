@@ -10,19 +10,19 @@ def test_empty():
         parse_bool('\n\n')
 
 
-def test_not_valid():
+def test_invalid_value():
     with pytest.raises(ValueError):
         parse_bool('foobar')
 
 
-def test_true():
+def test_valid_true():
     assert parse_bool('True') is True
     assert parse_bool('true') is True
     assert parse_bool('1') is True
     assert parse_bool(1) is True
 
 
-def test_false():
+def test_valid_false():
     assert parse_bool('False') is False
     assert parse_bool('false') is False
     assert parse_bool(0) is False

@@ -10,10 +10,10 @@ def test_empty():
         parse_call('\n\n')
 
 
-def test_not_valid():
+def test_invalid_function():
     with pytest.raises(ValueError):
         parse_call('foo.bar()')
 
 
-def test_parse_bool():
+def test_valid_parse_bool():
     assert parse_call('score.init.parse_bool', ('True',)) == True

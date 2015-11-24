@@ -14,12 +14,12 @@ def test_empty():
         parse_time_interval(False)
 
 
-def test_not_valid():
+def test_invalid_value():
     with pytest.raises(ValueError):
         parse_time_interval('1 year')
 
 
-def test_success():
+def test_valid_value():
     assert parse_time_interval('5 days') == 5 * 60 * 60 * 24
     assert parse_time_interval('3 millisecond') == 3 * 0.001
     assert parse_time_interval('9\ns') == 9
