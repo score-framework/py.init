@@ -173,15 +173,16 @@ def parse_host_port(value, fallback=None):
     """
     if not value:
         if isinstance(fallback, str):
-            fallback = parse_host_port(fallback)
-        return fallback
+            return parse_host_port(fallback)
     parts = value.split(':')
     if len(parts) == 1:
         if isinstance(fallback, str):
             fallback = parse_host_port(fallback)
         if fallback and len(fallback) > 1:
             parts.append(fallback[1])
-    return (parts[0], int(parts[1]))
+    if len(parts) < 2:
+        raise ValueError('Missing port definition')
+    return parts[0], int(parts[1])
 
 
 def parse_object(confdict, key, args=tuple(), kwargs={}):
