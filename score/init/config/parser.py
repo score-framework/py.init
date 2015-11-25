@@ -166,8 +166,8 @@ def _parse(file, visited):
         return settings
     if not os.path.isabs(base):
         base = os.path.join(settings['DEFAULT']['here'], base)
-    visited.append(os.path.realpath(file))
-    base = os.path.realpath(base)
+        base = os.path.abspath(base)
+    visited.append(os.path.abspath(file))
     if base in visited:
         raise ConfigurationError(
             __package__,
