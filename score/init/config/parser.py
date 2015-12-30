@@ -159,7 +159,8 @@ def _parse(file, visited):
     settings['DEFAULT']['here'] = os.path.dirname(file)
     if not settings['DEFAULT']['here']:
         settings['DEFAULT']['here'] = '.'
-    settings.read(file)
+    with open(file) as fp:
+        settings.read_file(fp)
     try:
         base = settings['score.init']['based_on']
     except KeyError:
