@@ -119,6 +119,16 @@ def init_from_file(file, *, overrides={}, init_logging=True):
                 init_logging=init_logging)
 
 
+def init_logging_from_file(file):
+    """
+    Just the part of :func:`.init_from_file` that would initialize logging.
+    """
+    import logging.config
+    confdict = parse_config_file(file)
+    if 'formatters' in confdict:
+        logging.config.fileConfig(confdict, disable_existing_loggers=False)
+
+
 class ConfiguredModule(metaclass=abc.ABCMeta):
     """
     The return value of an ``init`` function. This class is abstract and
