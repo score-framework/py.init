@@ -41,9 +41,8 @@ setup(
     author_email='score@strg.at',
     url='http://score-framework.org',
     keywords='score framework initializer',
-    packages=['score.init', 'score.init.config'],
+    packages=['score', 'score.init', 'score.init.config'],
     namespace_packages=['score'],
-    zip_safe=False,
     license='LGPL',
     classifiers=[
         'Development Status :: 4 - Beta',
