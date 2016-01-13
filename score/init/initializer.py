@@ -29,9 +29,11 @@ import importlib
 from inspect import signature, Parameter
 import logging
 import networkx as nx
+import os
+import pkgutil
+import sys
 from .config import parse_list, parse_config_file
 from .exceptions import InitializationError, ConfigurationError, DependencyLoop
-from collections import OrderedDict
 
 
 log = logging.getLogger(__name__)
@@ -66,45 +68,83 @@ def init(confdict, *, overrides={}, init_logging=True):
     if init_logging and 'formatters' in confdict:
         import logging.config
         # TODO: the fileConfig() function below expects a RawConfigParser
-        # instance -> convert the confdict if it is not an object of that type
+        # instance; this function, however, has no such limitation -> convert
+        # the confdict if it is not an object of that type
         logging.config.fileConfig(confdict, disable_existing_loggers=False)
     for section in overrides:
         if section not in confdict:
             confdict[section] = {}
         for key, value in overrides[section].items():
             confdict[section][key] = value
+    try:
+        paths = confdict['score.init']['autoimport']
+    except KeyError:
+        pass
+    else:
+        _import(parse_list(paths))
     return _init(confdict)
+
+
+def _import(paths):
+    if isinstance(paths, str):
+        return _import([paths])
+    for path in paths:
+        __import__(path)
+        module = sys.modules.get(path)
+        try:
+            module.__path__
+        except AttributeError:
+            # not a package
+            continue
+        submodules = pkgutil.walk_packages(os.path.join(module.__path__))
+        for importer, modname, ispkg in submodules:
+            if ispkg:
+                # according to the documentation of walk_packages
+                continue
+            if modname[0] == '_':
+                continue
+            __import__('%s.%s' % (path, modname))
 
 
 def _init(confdict):
     try:
         modconf = parse_list(confdict['score.init']['modules'])
     except KeyError:
+        # TODO: issue a warning through the warnings module
         return ConfiguredScore(confdict, dict())
     modules = {}
     for line in modconf:
-        name = line[line.rindex('.') + 1:]
-        modules[name] = line
+        parts = line.split(':', 2)
+        if len(parts) == 2:
+            module, alias = parts
+        elif '.' in line:
+            module = line
+            alias = line[line.rindex('.') + 1:]
+        else:
+            module = alias = line
+        modules[alias] = module
     dependency_map = _collect_dependencies(modules)
     initialized = dict()
-    for module in _sorted_dependency_map(dependency_map, 'initialization'):
-        module_dependencies = dependency_map[module]
+    for alias in _sorted_modules(dependency_map, 'initialization'):
+        modname = modules[alias]
+        module_dependencies = dependency_map[alias]
         modconf = {}
-        if module in confdict:
-            modconf = confdict[module]
+        if alias in confdict:
+            modconf = confdict[alias]
         kwargs = {}
         for dep in module_dependencies:
-            argname = next(k for k, v in modules.items() if v == dep)
-            kwargs[argname] = initialized[dep]
-        log.debug('Initializing %s' % module)
-        conf = importlib.import_module(module).init(modconf, **kwargs)
+            kwargs[dep] = initialized[dep]
+        log.debug('Initializing %s as %s' % (modname, alias))
+        conf = importlib.import_module(modname).init(modconf, **kwargs)
         if not isinstance(conf, ConfiguredModule):
             raise InitializationError(
                 __package__,
                 '%s initializer did not return ConfiguredModule but %s' %
-                (module, repr(conf)))
-        initialized[module] = conf
-    return ConfiguredScore(confdict, initialized)
+                (alias, repr(conf)))
+        initialized[alias] = conf
+    score = ConfiguredScore(confdict, initialized)
+    score._finalize()
+    return score
 
 
 def init_from_file(file, *, overrides={}, init_logging=True):
@@ -135,6 +175,8 @@ class ConfiguredModule(metaclass=abc.ABCMeta):
     modules must create sub-classes containing their respective configuration.
     """
 
+    _finalized = False
+
     def __init__(self, module):
         self._module = module
 
@@ -164,29 +206,24 @@ class AwaitFinalization(Exception):
 class ConfiguredScore(ConfiguredModule):
     """
     The return value of :func:`.init`. Contains the resulting
-    :class:`.ConfiguredModule` of every initialized module as a member. It is
-    also possible to access configured modules as a dictionary value:
-
-    >>> conf.ctx == conf['score.ctx']
+    :class:`.ConfiguredModule` of every initialized module as a member.
     """
 
     def __init__(self, confdict, modules):
-        ConfiguredModule.__init__(self, __package__)
+        import score.init
+        ConfiguredModule.__init__(self, score.init)
         self.conf = {}
         for section in confdict:
             self.conf[section] = dict(confdict[section].items())
         self._modules = modules
-        for name, conf in modules.items():
-            if name.startswith('score.'):
-                setattr(self, name[6:], conf)
-            else:
-                setattr(self, name, conf)
+        for alias, conf in modules.items():
+            setattr(self, alias, conf)
 
     def _finalize(self):
         dependency_map = {}
         # start out by finalizing the modules in the same order they were
         # initialized
-        for name, conf in self._modules.items():
+        for alias, conf in self._modules.items():
             try:
                 conf._finalize(self)
                 conf._finalized = True
@@ -196,17 +233,18 @@ class ConfiguredScore(ConfiguredModule):
                         conf._module,
                         'Module raised AwaitFinalization with an empty '
                         'modules list') from e
-                # TODO: ConfiguredModule -> string
+                # TODO: ConfiguredModule objects in this list need to be
+                #   converted to the corresponding alias.
                 unknowns = set(e.modules) - set(self._modules.keys())
                 if unknowns:
                     raise InitializationError(
                         conf._module,
-                        'Module awaits the finalization of some ' +
+                        'Module awaits the finalization of ' +
                         'modules that were not configured:\n - ' +
                         '\n - '.join(unknowns)) from e
-                dependency_map[name] = e.modules
-        for name in _sorted_dependency_map(dependency_map, 'finalization'):
-            conf = self._modules[name]
+                dependency_map[alias] = e.modules
+        for alias in _sorted_modules(dependency_map, 'finalization'):
+            conf = self._modules[alias]
             try:
                 conf._finalize()
                 conf._finalized = True
@@ -215,17 +253,11 @@ class ConfiguredScore(ConfiguredModule):
                     conf._module,
                     'Module changed its finalization dependencies') from e
 
-    def __hasitem__(self, module):
-        return module in self._modules
-
-    def __getitem__(self, module):
-        return self._modules[module]
-
 
 def _collect_dependencies(modules):
     missing = []
     dependency_map = dict()
-    for name, modname in modules.items():
+    for alias, modname in modules.items():
         if modname == 'score.init':
             continue
         try:
@@ -249,7 +281,7 @@ def _collect_dependencies(modules):
                 continue
             module_dependencies.append(
                 (param_name, param.default != Parameter.empty))
-        dependency_map[modname] = module_dependencies
+        dependency_map[alias] = module_dependencies
     if missing:
         raise ConfigurationError(
             __package__,
@@ -261,18 +293,18 @@ def _collect_dependencies(modules):
 
 def _remove_missing_optional_dependencies(modules, dependency_map):
     missing = {}
-    for name, module_dependencies in dependency_map.items():
+    for alias, module_dependencies in dependency_map.items():
         newdeps = []
         for dependency, is_optional in module_dependencies:
             if dependency in modules:
-                newdeps.append(modules[dependency])
+                newdeps.append(dependency)
                 continue
             if is_optional:
                 continue
             if dependency not in missing:
                 missing[dependency] = []
-            missing[dependency].append(name)
-        dependency_map[name] = newdeps
+            missing[dependency].append(alias)
+        dependency_map[alias] = newdeps
     if not missing:
         return
     msglist = []
@@ -285,18 +317,18 @@ def _remove_missing_optional_dependencies(modules, dependency_map):
         '\n - '.join(msglist))
 
 
-def _sorted_dependency_map(dependency_map, operation):
-    sorted_ = OrderedDict()
+def _sorted_modules(dependency_map, operation):
+    sorted_ = []
     graph = nx.DiGraph()
-    for module, module_dependencies in dependency_map.items():
+    for alias, module_dependencies in dependency_map.items():
         if not module_dependencies:
-            graph.add_edge(None, module)
+            graph.add_edge(None, alias)
         for dep in module_dependencies:
-            graph.add_edge(dep, module)
+            graph.add_edge(dep, alias)
     for loop in nx.simple_cycles(graph):
         raise DependencyLoop(__package__, operation, loop)
-    for module in nx.topological_sort(graph):
-        if module is None:
+    for alias in nx.topological_sort(graph):
+        if alias is None:
             continue
-        sorted_[module] = dependency_map[module]
+        sorted_.append(alias)
     return sorted_
