@@ -104,10 +104,7 @@ def parse_dotted_path(value):
     if '.' not in value:
         raise value_error
     module, classname = value.rsplit('.', 1)
-    try:
-        return getattr(importlib.import_module(module), classname)
-    except ImportError:
-        raise value_error
+    return getattr(importlib.import_module(module), classname)
 
 
 def parse_call(value, args=tuple(), kwargs={}):
