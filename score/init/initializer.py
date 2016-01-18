@@ -96,14 +96,15 @@ def _import(paths):
         except AttributeError:
             # not a package
             continue
-        submodules = pkgutil.walk_packages(os.path.join(module.__path__))
-        for importer, modname, ispkg in submodules:
-            if ispkg:
-                # according to the documentation of walk_packages
-                continue
-            if modname[0] == '_':
-                continue
-            __import__('%s.%s' % (path, modname))
+        for subpath in module.__path__:
+            submodules = pkgutil.walk_packages(subpath)
+            for importer, modname, ispkg in submodules:
+                if ispkg:
+                    # according to the documentation of walk_packages
+                    continue
+                if modname[0] == '_':
+                    continue
+                __import__('%s.%s' % (path, modname))
 
 
 def _init(confdict):
