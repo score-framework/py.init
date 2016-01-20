@@ -29,7 +29,6 @@ import importlib
 from inspect import signature, Parameter
 import logging
 import networkx as nx
-import os
 import pkgutil
 import sys
 from .config import parse_list, parse_config_file
@@ -181,7 +180,7 @@ class ConfiguredModule(metaclass=abc.ABCMeta):
     def __init__(self, module):
         self._module = module
 
-    def _finalize(self, score):
+    def _finalize(self):
         """
         The final function that will be called before the score initialization
         is considered complete. The parameter *score* contains the
@@ -196,12 +195,6 @@ class ConfiguredModule(metaclass=abc.ABCMeta):
         except AttributeError:
             self._log = logging.getLogger(self._module)
             return self._log
-
-
-class AwaitFinalization(Exception):
-
-    def __init__(self, modules):
-        self.modules = modules
 
 
 class ConfiguredScore(ConfiguredModule):
@@ -222,37 +215,26 @@ class ConfiguredScore(ConfiguredModule):
 
     def _finalize(self):
         dependency_map = {}
-        # start out by finalizing the modules in the same order they were
-        # initialized
         for alias, conf in self._modules.items():
-            try:
-                conf._finalize(self)
-                conf._finalized = True
-            except AwaitFinalization as e:
-                if not e.modules:
-                    raise InitializationError(
-                        conf._module,
-                        'Module raised AwaitFinalization with an empty '
-                        'modules list') from e
-                # TODO: ConfiguredModule objects in this list need to be
-                #   converted to the corresponding alias.
-                unknowns = set(e.modules) - set(self._modules.keys())
-                if unknowns:
-                    raise InitializationError(
-                        conf._module,
-                        'Module awaits the finalization of ' +
-                        'modules that were not configured:\n - ' +
-                        '\n - '.join(unknowns)) from e
-                dependency_map[alias] = e.modules
+            module_dependencies = []
+            sig = signature(conf._finalize)
+            for i, (param_name, param) in enumerate(sig.parameters.items()):
+                module_dependencies.append(
+                    (param_name, param.default != Parameter.empty))
+            dependency_map[alias] = module_dependencies
+        modules = self._modules.copy()
+        modules['score'] = self
+        _remove_missing_optional_dependencies(modules, dependency_map)
         for alias in _sorted_modules(dependency_map, 'finalization'):
-            conf = self._modules[alias]
-            try:
-                conf._finalize()
-                conf._finalized = True
-            except AwaitFinalization as e:
-                raise InitializationError(
-                    conf._module,
-                    'Module changed its finalization dependencies') from e
+            if alias == 'score':
+                continue
+            kwargs = {}
+            for dep in dependency_map[alias]:
+                kwargs[dep] = modules[dep]
+            log.debug('Finalizing %s' % (alias))
+            conf = modules[alias]
+            conf._finalize(**kwargs)
+            conf._finalized = True
 
 
 def _collect_dependencies(modules):
@@ -263,7 +245,9 @@ def _collect_dependencies(modules):
             continue
         try:
             module = importlib.import_module(modname)
-        except ImportError:
+        except ImportError as e:
+            if e.name != modname:
+                raise
             missing.append(modname)
             continue
         if not hasattr(module, 'init'):
