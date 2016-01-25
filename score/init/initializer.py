@@ -96,14 +96,12 @@ def _import(paths):
             # not a package
             continue
         for importer, modname, ispkg in pkgutil.walk_packages(module.__path__):
-            if ispkg:
-                # non-packages (i.e. modules, folders with an __init__.py) are
-                # included automatically according to the documentation of
-                # pkgutil.walk_packages()
-                continue
             if modname[0] == '_':
                 continue
-            __import__('%s.%s' % (path, modname))
+            if ispkg:
+                _import('%s.%s' % (path, modname))
+            else:
+                __import__('%s.%s' % (path, modname))
 
 
 def _init(confdict):
