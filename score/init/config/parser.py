@@ -31,15 +31,20 @@ import warnings
 from ..exceptions import ConfigurationError
 
 
-def parse(file):
+def parse(file, *, recurse=True):
     """
     Reads a configuration file and returns a :class:`configparser.ConfigParser`.
 
     The main feature of this function is the support for "adjustment files",
     i.e. files that do not actually define all values, but define deviations
-    from another file.
+    from another file. The function will collect the set of all values by
+    recursing into the files defined in the initial file. This whole feature can
+    be disabled, though, by passing a falsey value as the *recurse* argument, in
+    which case the function just behaves like a configparser with
+    :class:`configparser.ExtendedInterpolation`.
 
-    The process is at follows:
+    If the *recurse* value is left at its default, the parsing process is at
+    follows:
 
     - The file is parsed using the :class:`configparser.ExtendedInterpolation`.
     - If there is no section ``score.init``, or that section does not have a key
@@ -145,10 +150,10 @@ def parse(file):
         |bar  +  |+baz  =>  |baz
 
     """
-    return _parse(file, [])
+    return _parse(file, [], recurse)
 
 
-def _parse(file, visited):
+def _parse(file, visited, recurse):
     """
     Helper function for :func:`parse`, needed for hiding the *visited*
     parameter in the public API. The purpose of that parameter is to prevent
@@ -161,6 +166,8 @@ def _parse(file, visited):
         settings['DEFAULT']['here'] = '.'
     with open(file) as fp:
         settings.read_file(fp)
+    if not recurse:
+        return settings
     try:
         base = settings['score.init']['based_on']
     except KeyError:
@@ -174,7 +181,7 @@ def _parse(file, visited):
             __package__,
             'Configuration file loop:\n - ' + '\n - '.join(visited))
     adjustments = settings
-    settings = _parse(base, visited)
+    settings = _parse(base, visited, recurse)
     _apply_adjustments(settings, adjustments)
     return settings
 
@@ -202,6 +209,8 @@ def _apply_adjustments(settings, adjustments):
     changes as described in that function's documentation.
     """
     for section in adjustments:
+        if section == 'DEFAULT':
+            continue
         for key in adjustments[section]:
             # using raw=True here to bypass the ExtendedInterpolation, which
             # would interpret the dollar sign as an attempt to reference a
