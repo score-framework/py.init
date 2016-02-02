@@ -26,66 +26,145 @@
 
 import abc
 import importlib
-from inspect import signature
+from inspect import signature, Parameter
 import logging
 import networkx as nx
-import re
+import pkgutil
+import sys
 from .config import parse_list, parse_config_file
-from .exceptions import ConfigurationError, DependencyLoop
+from .exceptions import InitializationError, ConfigurationError, DependencyLoop
 
 
 log = logging.getLogger(__name__)
 
 
-def init(confdict):
+def init(confdict, *, overrides={}, init_logging=True):
     """
-    The only module initializer you will ever need. This function automates
-    the process of initializing all other modules. It will scan the
-    :term:`namespace package` ``score`` for packages that contain an ``init``-
-    function. It will then call the ``init`` functions one by one, respecting
-    their dependencies.
+    This function automates the process of initializing all other modules. It
+    will operate on given *confdict*, which is expected to be a 2-dimensional
+    `dict` mapping names of modules to their respective :term:`confdicts
+    <confdict>`. The recommended way of acquiring such a confdict is through
+    :func:`.parse_config_file`, but any 2-dimensional `dict` is fine.
 
-    The *confdict* to this function needs to be a 2-dimensional `dict` mapping
-    names of modules to their respective :term:`confdicts <confdict>`. This
-    can be an instance of :class:`configparser.ConfigParser`.
-
-    This function also accepts the following configuration keys (which need to
-    be accessible as ``confdict['score.init']['configuration-key']``):
+    The *confdict* should also contain the configuration for this module, which
+    interprets the configuration key ``modules`` (which should be accessible as
+    ``confdict['score.init']['modules']``):
 
     :confkey:`modules` :faint:`[optional]`
         A list of module names that shall be initialized. If this value is
-        missing, *all* modules in the score namespace will be initialized.
+        missing, you will end up with an empty :class:`.ConfiguredScore` object.
+
+    The provided *overrides* will be integrated into the actual *confdict*
+    prior to initialization. While the confdict is assumed to be retrieved from
+    external resources (like a configuration file), this parameter aims to make
+    programmatic adjustment of the configuration a bit easier.
+
+    The final parameter *init_logging* makes sure python's own logging
+    facility is initialized with the provided configuration, too.
 
     This function returns a :class:`.ConfiguredScore` object.
     """
-    def initializer(module, modconf, kwargs):
-        log.debug('Initializing %s' % module.__name__)
-        return module.init(modconf, **kwargs)
-    return _init(_get_modules, confdict, initializer)
+    if init_logging and 'formatters' in confdict:
+        import logging.config
+        # TODO: the fileConfig() function below expects a RawConfigParser
+        # instance; this function, however, has no such limitation -> convert
+        # the confdict if it is not an object of that type
+        logging.config.fileConfig(confdict, disable_existing_loggers=False)
+    for section in overrides:
+        if section not in confdict:
+            confdict[section] = {}
+        for key, value in overrides[section].items():
+            confdict[section][key] = value
+    try:
+        paths = confdict['score.init']['autoimport']
+    except KeyError:
+        pass
+    else:
+        _import(parse_list(paths))
+    return _init(confdict)
 
 
-class ConfiguredScore:
+def _import(paths):
+    if isinstance(paths, str):
+        return _import([paths])
+    for path in paths:
+        __import__(path)
+        module = sys.modules.get(path)
+        try:
+            module.__path__
+        except AttributeError:
+            # not a package
+            continue
+        for importer, modname, ispkg in pkgutil.walk_packages(module.__path__):
+            if modname[0] == '_':
+                continue
+            if ispkg:
+                _import('%s.%s' % (path, modname))
+            else:
+                __import__('%s.%s' % (path, modname))
+
+
+def _init(confdict):
+    try:
+        modconf = parse_list(confdict['score.init']['modules'])
+    except KeyError:
+        # TODO: issue a warning through the warnings module
+        return ConfiguredScore(confdict, dict())
+    modules = {}
+    for line in modconf:
+        parts = line.split(':', 2)
+        if len(parts) == 2:
+            module, alias = parts
+        elif '.' in line:
+            module = line
+            alias = line[line.rindex('.') + 1:]
+        else:
+            module = alias = line
+        modules[alias] = module
+    dependency_map = _collect_dependencies(modules)
+    initialized = dict()
+    for alias in _sorted_modules(dependency_map, 'initialization'):
+        modname = modules[alias]
+        module_dependencies = dependency_map[alias]
+        modconf = {}
+        if alias in confdict:
+            modconf = confdict[alias]
+        kwargs = {}
+        for dep in module_dependencies:
+            kwargs[dep] = initialized[dep]
+        log.debug('Initializing %s as %s' % (modname, alias))
+        conf = importlib.import_module(modname).init(modconf, **kwargs)
+        if not isinstance(conf, ConfiguredModule):
+            raise InitializationError(
+                __package__,
+                '%s initializer did not return ConfiguredModule but %s' %
+                (alias, repr(conf)))
+        initialized[alias] = conf
+    score = ConfiguredScore(confdict, initialized)
+    score._finalize()
+    return score
+
+
+def init_from_file(file, *, overrides={}, init_logging=True):
     """
-    The return value of :func:`.init`. Contains the resulting
-    :class:`.ConfiguredModule` of every initialized module as a member. It is
-    also possible to access configured modules as a dictionary value:
-
-    >>> conf.ctx == conf['score.ctx']
+    Reads configuration from given *file* using
+    :func:`.config.parse_config_file` and initializes score using :func:`.init`.
+    See the documentation of :func:`.init` for a description of all keyword
+    arguments.
     """
+    return init(parse_config_file(file),
+                overrides=overrides,
+                init_logging=init_logging)
 
-    def __init__(self, confdict, modules):
-        self.conf = {}
-        for section in confdict:
-            self.conf[section] = dict(confdict[section].items())
-        self._modules = modules
-        for module, conf in modules.items():
-            setattr(self, module[6:], conf)
 
-    def __hasitem__(self, module):
-        return module in self._modules
-
-    def __getitem__(self, module):
-        return self._modules[module]
+def init_logging_from_file(file):
+    """
+    Just the part of :func:`.init_from_file` that would initialize logging.
+    """
+    import logging.config
+    confdict = parse_config_file(file)
+    if 'formatters' in confdict:
+        logging.config.fileConfig(confdict, disable_existing_loggers=False)
 
 
 class ConfiguredModule(metaclass=abc.ABCMeta):
@@ -94,8 +173,18 @@ class ConfiguredModule(metaclass=abc.ABCMeta):
     modules must create sub-classes containing their respective configuration.
     """
 
+    _finalized = False
+
     def __init__(self, module):
         self._module = module
+
+    def _finalize(self):
+        """
+        The final function that will be called before the score initialization
+        is considered complete. The parameter *score* contains the
+        :class:`.ConfiguredScore` object.
+        """
+        pass
 
     @property
     def log(self):
@@ -106,116 +195,123 @@ class ConfiguredModule(metaclass=abc.ABCMeta):
             return self._log
 
 
-def init_from_file(file, overrides={}, modules=None, init_logging=True):
+class ConfiguredScore(ConfiguredModule):
     """
-    Reads configuration from given *file* using
-    :func:`.config.parse_config_file` and initializes score using :func:`.init`.
-
-    The provided *overrides* will be integrated into the configuration file
-    prior to initialization. It is possible to enforce certain configuration
-    values this way.
-
-    The parameter *modules* can contain a list of module names — but also a
-    single module name — which should be initialized. The exact same behaviour
-    can be achieved by providing the appropriate *overrides*, but this
-    convenience parameter was added since this was such a common use case.
-
-    The final parameter *init_logging* makes sure python's own logging
-    facility is initialized with the config *file*, too.
+    The return value of :func:`.init`. Contains the resulting
+    :class:`.ConfiguredModule` of every initialized module as a member.
     """
-    return _init_from_file(parse_config_file(file),
-                           overrides, modules, init_logging, init)
 
+    def __init__(self, confdict, modules):
+        import score.init
+        ConfiguredModule.__init__(self, score.init)
+        self.conf = {}
+        for section in confdict:
+            self.conf[section] = dict(confdict[section].items())
+        self._modules = modules
+        for alias, conf in modules.items():
+            setattr(self, alias, conf)
 
-def _init_from_file(settings, overrides, modules, init_logging, init):
-    """
-    Helper function for harmonizing the default init process and the one
-    involving pyramid. The parameters are that of :func:`.init_from_file`, the
-    only new parameter *init* is the callback to use for initializing all
-    modules, once the :term:`confdict` was initialized.
-    """
-    if init_logging:
-        import logging.config
-        logging.config.fileConfig(settings)
-    for section in overrides:
-        if section not in settings:
-            settings[section] = {}
-        for key, value in overrides[section].items():
-            settings[section][key] = value
-    if modules:
-        if isinstance(modules, str):
-            modules = (modules,)
-        settings['score.init']['modules'] = '\n'.join(modules)
-    return init(settings)
-
-
-def _get_modules(filter_=None):
-    import score
-    dependencyre = re.compile(r'^(.*)_conf$')
-    modules = dict()
-    for path in score.__path__:
-        from setuptools import find_packages
-        for modname in find_packages(path):
-            if modname.startswith('init'):
+    def _finalize(self):
+        dependency_map = {}
+        for alias, conf in self._modules.items():
+            module_dependencies = []
+            sig = signature(conf._finalize)
+            for i, (param_name, param) in enumerate(sig.parameters.items()):
+                module_dependencies.append(
+                    (param_name, param.default != Parameter.empty))
+            dependency_map[alias] = module_dependencies
+        modules = self._modules.copy()
+        modules['score'] = self
+        _remove_missing_optional_dependencies(modules, dependency_map)
+        for alias in _sorted_modules(dependency_map, 'finalization'):
+            if alias == 'score':
                 continue
-            fullname = 'score.%s' % modname
-            if filter_ and fullname not in filter_:
-                continue
-            module = importlib.import_module(fullname)
-            if not hasattr(module, 'init'):
-                continue
-            dependencies = []
-            sig = signature(module.init)
-            for paramname in sig.parameters:
-                match = dependencyre.match(paramname)
-                if match:
-                    dependencies.append('score.%s' % match.group(1))
-            modules[module] = dependencies
-    return modules
+            kwargs = {}
+            for dep in dependency_map[alias]:
+                kwargs[dep] = modules[dep]
+            log.debug('Finalizing %s' % (alias))
+            conf = modules[alias]
+            conf._finalize(**kwargs)
+            conf._finalized = True
 
 
-def _init(load_modules, confdict, init_module):
-    filter_ = None
-    if 'score.init' in confdict and 'modules' in confdict['score.init']:
-        filter_ = parse_list(confdict['score.init']['modules'])
-    modules = load_modules(filter_)
-    if filter_:
-        names = set(map(lambda m: m.__name__, modules))
-        missing = set(filter_) - names
-        if missing:
-            raise ConfigurationError(
-                __package__,
-                'Could not find the following modules:\n - ' +
-                '\n - '.join(missing))
-    graph = nx.DiGraph()
-    for module, dependencies in modules.items():
-        if not dependencies:
-            graph.add_edge(None, module.__name__)
-        for dep in dependencies:
-            graph.add_edge(dep, module.__name__)
-    for loop in nx.simple_cycles(graph):
-        raise DependencyLoop(loop)
-    initialized = dict()
-    for mod in nx.topological_sort(graph):
-        try:
-            module = next(m for m in modules if m.__name__ == mod)
-        except StopIteration:
-            # module listed as dependency, but it's not in the list of modules
-            # to initialize. we'll just skip it and let the depending module's
-            # init function fail if the dependency was not optional.
+def _collect_dependencies(modules):
+    missing = []
+    dependency_map = dict()
+    for alias, modname in modules.items():
+        if modname == 'score.init':
             continue
-        dependencies = modules[module]
-        modconf = {}
-        if module.__name__ in confdict:
-            modconf = confdict[module.__name__]
-        kwargs = {}
-        for dep in dependencies:
-            if dep not in initialized:
-                # let's hope this is an optional dependency
+        try:
+            module = importlib.import_module(modname)
+        except ImportError as e:
+            if e.name != modname:
+                raise
+            missing.append(modname)
+            continue
+        if not hasattr(module, 'init'):
+            raise InitializationError(
+                __package__,
+                'Cannot initialize %s: it has no init() function' % modname)
+        if not callable(module.init):
+            raise InitializationError(
+                __package__,
+                'Cannot initialize %s: its init is not a function' % modname)
+        module_dependencies = []
+        sig = signature(module.init)
+        for i, (param_name, param) in enumerate(sig.parameters.items()):
+            if i == 0:
+                # this should be the confdict
                 continue
-            kwargs[dep[6:] + '_conf'] = initialized[dep]
-        initialized[module.__name__] = init_module(module, modconf, kwargs)
-    conf = ConfiguredScore(confdict, initialized)
-    if hasattr(conf, 'ctx'):
-        conf.ctx.register('score', lambda _: conf)
-    return conf
+            module_dependencies.append(
+                (param_name, param.default != Parameter.empty))
+        dependency_map[alias] = module_dependencies
+    if missing:
+        raise ConfigurationError(
+            __package__,
+            'Could not find the following modules:\n - ' +
+            '\n - '.join(missing))
+    _remove_missing_optional_dependencies(modules, dependency_map)
+    return dependency_map
+
+
+def _remove_missing_optional_dependencies(modules, dependency_map):
+    missing = {}
+    for alias, module_dependencies in dependency_map.items():
+        newdeps = []
+        for dependency, is_optional in module_dependencies:
+            if dependency in modules:
+                newdeps.append(dependency)
+                continue
+            if is_optional:
+                continue
+            if dependency not in missing:
+                missing[dependency] = []
+            missing[dependency].append(alias)
+        dependency_map[alias] = newdeps
+    if not missing:
+        return
+    msglist = []
+    for dependency, dependants in missing.items():
+        msglist.append('%s (required by %s)' %
+                       (dependency, ', '.join(dependants)))
+    raise ConfigurationError(
+        __package__,
+        'Could not find the following dependencies:\n - ' +
+        '\n - '.join(msglist))
+
+
+def _sorted_modules(dependency_map, operation):
+    sorted_ = []
+    graph = nx.DiGraph()
+    for alias, module_dependencies in dependency_map.items():
+        if not module_dependencies:
+            graph.add_edge(None, alias)
+        for dep in module_dependencies:
+            graph.add_edge(dep, alias)
+    for loop in nx.simple_cycles(graph):
+        raise DependencyLoop(__package__, operation, loop)
+    for alias in nx.topological_sort(graph):
+        if alias is None:
+            continue
+        sorted_.append(alias)
+    return sorted_

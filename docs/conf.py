@@ -276,9 +276,7 @@ texinfo_documents = [
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
     'python': ('http://docs.python.org/3/', None),
-    'pyramid': ('http://docs.pylonsproject.org/projects/pyramid/en/latest/', None),
     'sqlalchemy': ('http://docs.sqlalchemy.org/en/rel_0_9/', None),
     'strg': ('http://docs.strg.at/', None),
     'score': ('http://docs.strg.at/', None),
 }
-

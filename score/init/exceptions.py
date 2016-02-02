@@ -27,7 +27,7 @@
 
 class InitializationError(Exception):
     """
-    Base class for exceptions to raise, in case the initialization of a module
+    Base class for exceptions to raise when the initialization of a module
     fails.
     """
 
@@ -38,12 +38,15 @@ class InitializationError(Exception):
 
 class DependencyLoop(InitializationError):
     """
-    Thrown if a dependency loop was detected during a call to :func:`.init`.
+    Thrown if a dependency loop was detected during a call to :func:`.init` or
+    :meth:`.ConfiguredModule._finalize`.
     """
 
-    def __init__(self, *args, **kwargs):
-        # skip parent constructor
-        Exception.__init__(self, *args, **kwargs)
+    def __init__(self, module, operation, loop):
+        message = \
+            ('Circular dependency during %s between the following modules:\n - '
+             % (operation)) + '\n - '.join(loop)
+        super().__init__(module, message)
 
 
 class ConfigurationError(InitializationError):
