@@ -29,6 +29,7 @@ import os
 import re
 import warnings
 from ..exceptions import ConfigurationError
+from .helpers import parse_list
 
 
 def parse(file, *, recurse=True):
@@ -153,7 +154,7 @@ def parse(file, *, recurse=True):
     return _parse(file, [], recurse)
 
 
-def _parse(file, visited, recurse):
+def _parse(file, visited, recurse=True):
     """
     Helper function for :func:`parse`, needed for hiding the *visited*
     parameter in the public API. The purpose of that parameter is to prevent
@@ -169,21 +170,37 @@ def _parse(file, visited, recurse):
     if not recurse:
         return settings
     try:
-        base = settings['score.init']['based_on']
+        bases_string = settings['score.init']['based_on']
     except KeyError:
         return settings
-    if not os.path.isabs(base):
-        base = os.path.join(settings['DEFAULT']['here'], base)
-        base = os.path.abspath(base)
     visited.append(os.path.abspath(file))
-    if base in visited:
-        raise ConfigurationError(
-            __package__,
-            'Configuration file loop:\n - ' + '\n - '.join(visited))
     adjustments = settings
-    settings = _parse(base, visited, recurse)
+    bases = []
+    for base in parse_list(bases_string):
+        if not os.path.isabs(base):
+            base = os.path.join(settings['DEFAULT']['here'], base)
+            base = os.path.abspath(base)
+        if base in visited:
+            raise ConfigurationError(
+                __package__,
+                'Configuration file loop:\n - ' + '\n - '.join(visited))
+        bases.append(_parse(base, visited))
+    settings = _merge_settings(*bases)
     _apply_adjustments(settings, adjustments)
+    visited.pop()
     return settings
+
+
+def _merge_settings(*settings):
+    if not settings:
+        return configparser.ConfigParser(
+            interpolation=configparser.ExtendedInterpolation())
+    result = settings[0]
+    for other in settings[1:]:
+        for section in other:
+            for key in other[section]:
+                result[section][key] = other[section][key]
+    return result
 
 
 _replace_regex = re.compile(
