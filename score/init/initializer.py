@@ -109,21 +109,13 @@ def _init(confdict):
         modconf = parse_list(confdict['score.init']['modules'])
     except KeyError:
         # TODO: issue a warning through the warnings module
-        return ConfiguredScore(confdict, dict())
-    modules = {}
-    for line in modconf:
-        parts = line.split(':', 2)
-        if len(parts) == 2:
-            module, alias = parts
-        elif '.' in line:
-            module = line
-            alias = line[line.rindex('.') + 1:]
-        else:
-            module = alias = line
-        modules[alias] = module
+        return ConfiguredScore(confdict, dict(), dict())
+    modules, dependency_aliases = _collect_modules(modconf)
     dependency_map = _collect_dependencies(modules)
     initialized = dict()
-    for alias in _sorted_modules(dependency_map, 'initialization'):
+    sorted_aliases = _sort_modules(
+        dependency_map, dependency_aliases, 'initialization')
+    for alias in sorted_aliases:
         modname = modules[alias]
         module_dependencies = dependency_map[alias]
         modconf = {}
@@ -131,7 +123,12 @@ def _init(confdict):
             modconf = confdict[alias]
         kwargs = {}
         for dep in module_dependencies:
-            kwargs[dep] = initialized[dep]
+            try:
+                dependency_alias = dependency_aliases[alias][dep]
+            except KeyError:
+                kwargs[dep] = initialized[dep]
+            else:
+                kwargs[dep] = initialized[dependency_alias]
         log.debug('Initializing %s as %s' % (modname, alias))
         conf = importlib.import_module(modname).init(modconf, **kwargs)
         if not isinstance(conf, ConfiguredModule):
@@ -140,7 +137,7 @@ def _init(confdict):
                 '%s initializer did not return ConfiguredModule but %s' %
                 (alias, repr(conf)))
         initialized[alias] = conf
-    score = ConfiguredScore(confdict, initialized)
+    score = ConfiguredScore(confdict, initialized, dependency_aliases)
     score._finalize()
     return score
 
@@ -201,13 +198,14 @@ class ConfiguredScore(ConfiguredModule):
     :class:`.ConfiguredModule` of every initialized module as a member.
     """
 
-    def __init__(self, confdict, modules):
+    def __init__(self, confdict, modules, dependency_aliases):
         import score.init
         ConfiguredModule.__init__(self, score.init)
         self.conf = {}
         for section in confdict:
             self.conf[section] = dict(confdict[section].items())
         self._modules = modules
+        self._module_dependency_aliases = dependency_aliases
         for alias, conf in modules.items():
             setattr(self, alias, conf)
 
@@ -223,7 +221,9 @@ class ConfiguredScore(ConfiguredModule):
         modules = self._modules.copy()
         modules['score'] = self
         _remove_missing_optional_dependencies(modules, dependency_map)
-        for alias in _sorted_modules(dependency_map, 'finalization'):
+        sorted_aliases = _sort_modules(
+            dependency_map, self._module_dependency_aliases, 'finalization')
+        for alias in sorted_aliases:
             if alias == 'score':
                 continue
             kwargs = {}
@@ -233,6 +233,29 @@ class ConfiguredScore(ConfiguredModule):
             conf = modules[alias]
             conf._finalize(**kwargs)
             conf._finalized = True
+
+
+def _collect_modules(modconf):
+    modules = {}
+    dependency_aliases = {}
+    for line in modconf:
+        parts = line.split(':', 2)
+        if len(parts) == 2:
+            module, alias = parts
+            if '(' in alias:
+                assignments = alias[alias.index('('):].strip(' ()').split(',')
+                alias = alias[:alias.index('(')].strip()
+                dependency_aliases[alias] = {}
+                for assignment in assignments:
+                    key, value = assignment.split('=')
+                    dependency_aliases[alias][key.strip()] = value.strip()
+        elif '.' in line:
+            module = line
+            alias = line[line.rindex('.') + 1:]
+        else:
+            module = alias = line
+        modules[alias] = module
+    return modules, dependency_aliases
 
 
 def _collect_dependencies(modules):
@@ -300,13 +323,17 @@ def _remove_missing_optional_dependencies(modules, dependency_map):
         '\n - '.join(msglist))
 
 
-def _sorted_modules(dependency_map, operation):
+def _sort_modules(dependency_map, dependency_aliases, operation):
     sorted_ = []
     graph = nx.DiGraph()
     for alias, module_dependencies in dependency_map.items():
         if not module_dependencies:
             graph.add_edge(None, alias)
         for dep in module_dependencies:
+            try:
+                dep = dependency_aliases[alias][dep]
+            except KeyError:
+                pass
             graph.add_edge(dep, alias)
     for loop in nx.simple_cycles(graph):
         raise DependencyLoop(__package__, operation, loop)
