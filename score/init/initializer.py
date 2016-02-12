@@ -111,7 +111,7 @@ def _init(confdict):
         # TODO: issue a warning through the warnings module
         return ConfiguredScore(confdict, dict(), dict())
     modules, dependency_aliases = _collect_modules(modconf)
-    dependency_map = _collect_dependencies(modules)
+    dependency_map = _collect_dependencies(modules, dependency_aliases)
     initialized = dict()
     sorted_aliases = _sort_modules(
         dependency_map, dependency_aliases, 'initialization')
@@ -220,7 +220,8 @@ class ConfiguredScore(ConfiguredModule):
             dependency_map[alias] = module_dependencies
         modules = self._modules.copy()
         modules['score'] = self
-        _remove_missing_optional_dependencies(modules, dependency_map)
+        _remove_missing_optional_dependencies(
+            modules, dependency_map, self._module_dependency_aliases)
         sorted_aliases = _sort_modules(
             dependency_map, self._module_dependency_aliases, 'finalization')
         for alias in sorted_aliases:
@@ -258,7 +259,7 @@ def _collect_modules(modconf):
     return modules, dependency_aliases
 
 
-def _collect_dependencies(modules):
+def _collect_dependencies(modules, dependency_aliases):
     missing = []
     dependency_map = dict()
     for alias, modname in modules.items():
@@ -293,16 +294,22 @@ def _collect_dependencies(modules):
             __package__,
             'Could not find the following modules:\n - ' +
             '\n - '.join(missing))
-    _remove_missing_optional_dependencies(modules, dependency_map)
+    _remove_missing_optional_dependencies(
+        modules, dependency_map, dependency_aliases)
     return dependency_map
 
 
-def _remove_missing_optional_dependencies(modules, dependency_map):
+def _remove_missing_optional_dependencies(modules, dependency_map,
+                                          dependency_aliases):
     missing = {}
     for alias, module_dependencies in dependency_map.items():
         newdeps = []
         for dependency, is_optional in module_dependencies:
-            if dependency in modules:
+            try:
+                dependency_alias = dependency_aliases[alias][dependency]
+            except KeyError:
+                dependency_alias = dependency
+            if dependency_alias in modules:
                 newdeps.append(dependency)
                 continue
             if is_optional:
