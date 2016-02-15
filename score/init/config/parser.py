@@ -198,6 +198,8 @@ def _merge_settings(*settings):
     result = settings[0]
     for other in settings[1:]:
         for section in other:
+            if section not in result:
+                result[section] = {}
             for key in other[section]:
                 result[section][key] = other[section][key]
     return result
