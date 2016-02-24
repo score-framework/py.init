@@ -243,18 +243,18 @@ def _collect_modules(modconf):
         parts = line.split(':', 2)
         if len(parts) == 2:
             module, alias = parts
-            if '(' in alias:
-                assignments = alias[alias.index('('):].strip(' ()').split(',')
-                alias = alias[:alias.index('(')].strip()
-                dependency_aliases[alias] = {}
-                for assignment in assignments:
-                    key, value = assignment.split('=')
-                    dependency_aliases[alias][key.strip()] = value.strip()
         elif '.' in line:
             module = line
             alias = line[line.rindex('.') + 1:]
         else:
             module = alias = line
+        if '(' in alias:
+            assignments = alias[alias.index('('):].strip(' ()').split(',')
+            alias = alias[:alias.index('(')].strip()
+            dependency_aliases[alias] = {}
+            for assignment in assignments:
+                key, value = assignment.split('=')
+                dependency_aliases[alias][key.strip()] = value.strip()
         modules[alias] = module
     return modules, dependency_aliases
 
