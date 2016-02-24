@@ -176,6 +176,7 @@ def _parse(file, visited, recurse=True):
     visited.append(os.path.abspath(file))
     adjustments = settings
     bases = []
+    base_files = [os.path.abspath(file)]
     for base in parse_list(bases_string):
         if not os.path.isabs(base):
             base = os.path.join(settings['DEFAULT']['here'], base)
@@ -184,10 +185,18 @@ def _parse(file, visited, recurse=True):
             raise ConfigurationError(
                 __package__,
                 'Configuration file loop:\n - ' + '\n - '.join(visited))
+        base_files.append(base)
         bases.append(_parse(base, visited))
     settings = _merge_settings(*bases)
     _apply_adjustments(settings, adjustments)
     visited.pop()
+    if 'score.init' not in settings:
+        settings['score.init'] = {}
+    if '_based_on' not in settings['score.init']:
+        settings['score.init']['_based_on'] = '\n'.join(base_files)
+    else:
+        settings['score.init']['_based_on'] = \
+            settings['score.init']['_based_on'] + '\n' + '\n'.join(base_files)
     return settings
 
 
