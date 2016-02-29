@@ -229,7 +229,12 @@ class ConfiguredScore(ConfiguredModule):
                 continue
             kwargs = {}
             for dep in dependency_map[alias]:
-                kwargs[dep] = modules[dep]
+                try:
+                    depalias = self._module_dependency_aliases[alias][dep]
+                except KeyError:
+                    kwargs[dep] = modules[dep]
+                else:
+                    kwargs[dep] = modules[depalias]
             log.debug('Finalizing %s' % (alias))
             conf = modules[alias]
             conf._finalize(**kwargs)
@@ -251,6 +256,8 @@ def _collect_modules(modconf):
         if '(' in alias:
             assignments = alias[alias.index('('):].strip(' ()').split(',')
             alias = alias[:alias.index('(')].strip()
+            if '(' in module:
+                module = module[:module.index('(')].strip()
             dependency_aliases[alias] = {}
             for assignment in assignments:
                 key, value = assignment.split('=')
