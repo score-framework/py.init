@@ -10,9 +10,9 @@ Introduction
 ============
 
 This module provides helper functions that will allow implementing our
-:ref:`initialization guidelines <module_initialization>` conveniently. It
-provides an auto-initializer for a list of score-modules and several functions
-supporting the initialization process itself.
+:ref:`initialization guidelines <initialization>` conveniently. It provides an
+auto-initializer for a list of score-modules and several functions supporting
+the initialization process itself.
 
 
 Configuration
@@ -24,7 +24,21 @@ Configuration
 
 .. autofunction:: score.init.config.parse_config_file
 
+.. autofunction:: score.init.init_logging_from_file
+
+.. autoclass:: score.init.ConfiguredScore
+
 .. autoclass:: score.init.ConfiguredModule
+
+Exceptions
+----------
+
+.. autoclass:: score.init.InitializationError
+
+.. autoclass:: score.init.DependencyLoop
+
+.. autoclass:: score.init.ConfigurationError
+
 
 Helper functions
 ================
@@ -46,10 +60,4 @@ Helper functions
 .. autofunction:: score.init.parse_object
 
 .. autofunction:: score.init.init_cache_folder
-
-Pyramid integration
-===================
-
-.. automodule:: score.init.pyramid
-    :members:
 
