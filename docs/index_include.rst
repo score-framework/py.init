@@ -22,7 +22,7 @@ Configuration
 
 .. autofunction:: score.init.init_from_file
 
-.. autofunction:: score.init.config.parse_config_file
+.. autofunction:: score.init.parse_config_file
 
 .. autofunction:: score.init.init_logging_from_file
 
