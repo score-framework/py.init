@@ -278,7 +278,7 @@ def _import(module_name):
         if e.name != module_name:
             raise
     log.warn("Module `%s' not found, installing" % module_name)
-    if pip.main(['install', module_name]):
+    if pip.main(['install', module_name]) == 0:
         try:
             return importlib.import_module(module_name)
         except ImportError as e:
