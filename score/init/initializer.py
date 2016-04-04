@@ -33,6 +33,7 @@ import pkgutil
 import sys
 from .config import parse_list, parse_config_file
 from .exceptions import InitializationError, ConfigurationError, DependencyLoop
+import pip
 
 
 log = logging.getLogger(__name__)
@@ -80,13 +81,13 @@ def init(confdict, *, overrides={}, init_logging=True):
     except KeyError:
         pass
     else:
-        _import(parse_list(paths))
+        _perform_autoimport(parse_list(paths))
     return _init(confdict)
 
 
-def _import(paths):
+def _perform_autoimport(paths):
     if isinstance(paths, str):
-        return _import([paths])
+        return _perform_autoimport([paths])
     for path in paths:
         __import__(path)
         module = sys.modules.get(path)
@@ -99,7 +100,7 @@ def _import(paths):
             if modname[0] == '_':
                 continue
             if ispkg:
-                _import('%s.%s' % (path, modname))
+                _perform_autoimport('%s.%s' % (path, modname))
             else:
                 __import__('%s.%s' % (path, modname))
 
@@ -266,17 +267,34 @@ def _collect_modules(modconf):
     return modules, dependency_aliases
 
 
+def _import(module_name):
+    """
+    Will import a given python package, using pip to install it, if it could not
+    be found.
+    """
+    try:
+        return importlib.import_module(module_name)
+    except ImportError as e:
+        if e.name != module_name:
+            raise
+    log.warn("Module `%s' not found, installing" % module_name)
+    if pip.main(['install', module_name]):
+        try:
+            return importlib.import_module(module_name)
+        except ImportError as e:
+            if e.name != module_name:
+                raise
+    return None
+
+
 def _collect_dependencies(modules, dependency_aliases):
     missing = []
     dependency_map = dict()
     for alias, modname in modules.items():
         if modname == 'score.init':
             continue
-        try:
-            module = importlib.import_module(modname)
-        except ImportError as e:
-            if e.name != modname:
-                raise
+        module = _import(modname)
+        if not module:
             missing.append(modname)
             continue
         if not hasattr(module, 'init'):

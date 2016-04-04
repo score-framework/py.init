@@ -58,6 +58,7 @@ setup(
         'Topic :: Software Development :: Libraries :: Application Frameworks',
     ],
     install_requires=[
+        'pip',
         'networkx',
     ]
 )
