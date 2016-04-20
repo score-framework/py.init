@@ -189,7 +189,7 @@ class ConfiguredModule(metaclass=abc.ABCMeta):
         try:
             return self._log
         except AttributeError:
-            self._log = logging.getLogger(self._module)
+            self._log = logging.getLogger(self._module.__name__)
             return self._log
 
 
