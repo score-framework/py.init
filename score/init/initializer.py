@@ -215,8 +215,11 @@ class ConfiguredScore(ConfiguredModule):
         for alias, conf in self._modules.items():
             module_dependencies = []
             if hasattr(conf, '_finalize_dependencies'):
-                for dep in conf._finalize_dependencies:
-                    module_dependencies.append((dep, True))
+                if isinstance(conf._finalize_dependencies, dict):
+                    module_dependencies = conf._finalize_dependencies
+                else:
+                    module_dependencies = \
+                        [(dep, True) for dep in conf._finalize_dependencies]
             else:
                 sig = signature(conf._finalize)
                 for i, (param_name, param) in enumerate(sig.parameters.items()):
