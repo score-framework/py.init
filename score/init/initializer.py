@@ -214,10 +214,14 @@ class ConfiguredScore(ConfiguredModule):
         dependency_map = {}
         for alias, conf in self._modules.items():
             module_dependencies = []
-            sig = signature(conf._finalize)
-            for i, (param_name, param) in enumerate(sig.parameters.items()):
-                module_dependencies.append(
-                    (param_name, param.default != Parameter.empty))
+            if hasattr(conf, '_finalize_dependencies'):
+                for dep in conf._finalize_dependencies:
+                    module_dependencies.append((dep, True))
+            else:
+                sig = signature(conf._finalize)
+                for i, (param_name, param) in enumerate(sig.parameters.items()):
+                    module_dependencies.append(
+                        (param_name, param.default != Parameter.empty))
             dependency_map[alias] = module_dependencies
         modules = self._modules.copy()
         modules['score'] = self
