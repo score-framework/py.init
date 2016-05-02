@@ -187,8 +187,9 @@ def _parse(file, visited, recurse=True):
             base = os.path.join(settings['DEFAULT']['here'], base)
             base = os.path.abspath(base)
         if base in visited:
+            import score.init
             raise ConfigurationError(
-                __package__,
+                score.init,
                 'Configuration file loop:\n - ' + '\n - '.join(visited))
         base_files.append(base)
         bases.append(_parse(base, visited))
@@ -306,8 +307,9 @@ def _apply_diff(section, key, original, diff):
             try:
                 anchor = lines.index(line) + 1
             except ValueError as e:
+                import score.init
                 raise ConfigurationError(
-                    __package__,
+                    score.init,
                     'Error parsing diff in %s/%s: line does not exist in base'
                     'file:\n %s' % (section, key, line)
                 ) from e
@@ -315,8 +317,9 @@ def _apply_diff(section, key, original, diff):
             try:
                 anchor = lines.index(line[1:])
             except ValueError as e:
+                import score.init
                 raise ConfigurationError(
-                    __package__,
+                    score.init,
                     'Error parsing diff in %s/%s: line does not exist in base'
                     'file:\n %s' % (section, key, line)
                 ) from e
@@ -335,8 +338,9 @@ def _apply_replace(section, key, original, definition):
     while original[start:]:
         match = _replace_regex.match(definition, start)
         if not match:
+            import score.init
             raise ConfigurationError(
-                __package__,
+                score.init,
                 'Adjustment value for %s/%s contains invalid replacements' %
                 (section, key)
             )
