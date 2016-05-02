@@ -175,13 +175,39 @@ def _parse(file, visited, recurse=True):
     if not recurse:
         return settings
     try:
+        includes = settings['score.init']['include']
+    except KeyError:
+        includes = ''
+    files = []
+    visited.append(os.path.abspath(file))
+    settings = _parse_bases(file, visited, settings, files)
+    settings = _parse_includes(file, visited, settings, files, includes)
+    visited.pop()
+    if 'score.init' not in settings:
+        settings['score.init'] = {}
+    try:
+        settings['score.init']['_files'] = \
+            settings['score.init']['_files'] + '\n' + '\n'.join(files)
+    except KeyError:
+        settings['score.init']['_files'] = '\n'.join(files)
+    return settings
+
+
+def _parse_bases(file, visited, settings, files):
+    """
+    Handles the ``score.init/based_on`` key in the parsed *settings* of given
+    configuration *file*. Will add all encountered bases to the list of *files*
+    encountered while handling the the current file. Will also raise a
+    :class:`.ConfigurationError` if it encounters a file that has already been
+    *visited*.
+    """
+    try:
         bases_string = settings['score.init']['based_on']
     except KeyError:
         return settings
-    visited.append(os.path.abspath(file))
     adjustments = settings
     bases = []
-    base_files = [os.path.abspath(file)]
+    files.append(os.path.abspath(file))
     for base in parse_list(bases_string):
         if not os.path.isabs(base):
             base = os.path.join(settings['DEFAULT']['here'], base)
@@ -191,32 +217,58 @@ def _parse(file, visited, recurse=True):
             raise ConfigurationError(
                 score.init,
                 'Configuration file loop:\n - ' + '\n - '.join(visited))
-        base_files.append(base)
+        files.append(base)
         bases.append(_parse(base, visited))
     settings = _merge_settings(*bases)
-    _apply_adjustments(settings, adjustments)
-    visited.pop()
-    if 'score.init' not in settings:
-        settings['score.init'] = {}
-    if '_based_on' not in settings['score.init']:
-        settings['score.init']['_based_on'] = '\n'.join(base_files)
-    else:
-        settings['score.init']['_based_on'] = \
-            settings['score.init']['_based_on'] + '\n' + '\n'.join(base_files)
+    _apply_adjustments(file, settings, adjustments)
+    return settings
+
+
+def _parse_includes(file, visited, settings, files, includes):
+    """
+    Handles the ``score.init/include`` key in the parsed *settings* of given
+    configuration *file*. Will add all encountered bases to the list of *files*
+    encountered while handling the the current file. Will also raise a
+    :class:`.ConfigurationError` if one of the includes has a ``based_on``
+    configuration.
+    *visited*.
+    """
+    if not includes:
+        return settings
+    for include_file in parse_list(includes):
+        include = _parse(include_file, visited, recurse=False)
+        try:
+            if include['score.init']['based_on']:
+                import score.init
+                raise ConfigurationError(
+                    score.init,
+                    'An included file cannot be `based_on` other files')
+        except KeyError:
+            pass
+        _apply_adjustments(file, settings, include)
+        files.append(include_file)
     return settings
 
 
 def _merge_settings(*settings):
-    if not settings:
-        return configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation())
-    result = settings[0]
-    for other in settings[1:]:
+    """
+    Returns a new :class:`configparser.ConfigParser` that contains all sections
+    and keys in given list of configuration *settings*. Keys in later settings
+    will overwrite those in earlier settings.
+    """
+    result = configparser.ConfigParser(
+        interpolation=configparser.ExtendedInterpolation())
+    for other in settings:
         for section in other:
+            if section == 'DEFAULT':
+                continue
             if section not in result:
                 result[section] = {}
             for key in other[section]:
-                result[section][key] = other[section][key]
+                value = other[section][key]
+                if key in other['DEFAULT'] and other['DEFAULT'][key] == value:
+                    continue
+                result[section][key] = value
     return result
 
 
@@ -237,7 +289,7 @@ _replace_regex = re.compile(
     """, re.VERBOSE)
 
 
-def _apply_adjustments(settings, adjustments):
+def _apply_adjustments(file, settings, adjustments):
     """
     Helper function for :func:`parse`, which applies all adjusting settings
     changes as described in that function's documentation.
@@ -246,50 +298,66 @@ def _apply_adjustments(settings, adjustments):
         if section == 'DEFAULT':
             continue
         for key in adjustments[section]:
-            # using raw=True here to bypass the ExtendedInterpolation, which
-            # would interpret the dollar sign as an attempt to reference a
-            # variable, while it is much more probable that one wants to match
-            # the "end of string". In other words: raw=True prevents an
-            # configparser.InterpolationSyntaxError on the following input (note
-            # the dollar sign):
-            #
-            #   <replace:\.sqlite3$:.db>
-            #
-            value = adjustments[section].get(key, raw=True)
-            if value.strip() == '<delete>':
+            try:
+                value = adjustments[section][key]
                 try:
-                    del settings[section][key]
+                    if adjustments['DEFAULT'][key] == value:
+                        continue
                 except KeyError:
-                    warnings.warn(
-                        'Requested delete-adjustment target %s/%s does '
-                        'not exist in original file' % (section, key))
-                continue
-            elif value.strip().startswith('<diff>'):
-                try:
-                    original = settings[section][key]
-                except KeyError as e:
-                    raise ConfigurationError(
-                        __package__,
-                        'Original value of diff-adjustment to %s/%s not found' %
-                        (section, key)
-                    ) from e
-                settings[section][key] = _apply_diff(section, key,
-                                                     original, value)
-            elif _replace_regex.match(value.strip()):
-                try:
-                    original = settings[section][key]
-                except KeyError as e:
-                    raise ConfigurationError(
-                        __package__,
-                        'Original value of replace-adjustment to %s/%s '
-                        'not found' % (section, key)
-                    ) from e
-                settings[section][key] = _apply_replace(section, key,
-                                                        original, value)
-            else:
-                if section not in settings:
-                    settings[section] = {}
-                settings[section][key] = value
+                    pass
+            except configparser.InterpolationSyntaxError:
+                # Handle "broken" interpolation in regular expressions due to
+                # end-of-string anchor (i.e. dollar sign) by bypassing
+                # interpolation altogether (using the *raw* kwarg). Example
+                # scenario where this is useful (not the dollar sign):
+                #   <replace:\.sqlite3$:.db>
+                value = adjustments[section].get(key, raw=True)
+                if not _replace_regex.match(value):
+                    raise
+            except configparser.InterpolationMissingOptionError:
+                value = adjustments[section].get(key, raw=True)
+            _apply_adjustment(file, settings, section, key, value)
+
+
+def _apply_adjustment(file, settings, section, key, value):
+    """
+    Helper function for :func:`_apply_adjustments`, which applies a single
+    adjusting setting changes as described in the documentation to
+    :func:`parse`.
+    """
+    if value.strip() == '<delete>':
+        try:
+            del settings[section][key]
+        except KeyError:
+            warnings.warn(
+                'Requested delete-adjustment target %s/%s does '
+                'not exist in original file %s' % (section, key, file))
+    elif value.strip().startswith('<diff>'):
+        try:
+            original = settings[section][key]
+        except KeyError as e:
+            import score.init
+            raise ConfigurationError(
+                score.init,
+                'Original value of diff-adjustment to %s/%s not found in %s' %
+                (section, key, file)
+            ) from e
+        settings[section][key] = _apply_diff(section, key, original, value)
+    elif _replace_regex.match(value.strip()):
+        try:
+            original = settings[section][key]
+        except KeyError as e:
+            import score.init
+            raise ConfigurationError(
+                score.init,
+                'Original value of replace-adjustment to %s/%s '
+                'not found in %s' % (section, key, file)
+            ) from e
+        settings[section][key] = _apply_replace(section, key, original, value)
+    else:
+        if section not in settings:
+            settings[section] = {}
+        settings[section][key] = value
 
 
 def _apply_diff(section, key, original, diff):
@@ -332,6 +400,10 @@ def _apply_diff(section, key, original, diff):
 
 
 def _apply_replace(section, key, original, definition):
+    """
+    Applies a *replace* operation as described in :func:`.parse` to given
+    *original* value.
+    """
     replaced = original
     start = 0
     definition = definition.strip()
