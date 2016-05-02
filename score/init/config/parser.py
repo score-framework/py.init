@@ -30,6 +30,10 @@ import re
 import warnings
 from ..exceptions import ConfigurationError
 from .helpers import parse_list
+import logging
+
+
+log = logging.getLogger(__name__)
 
 
 def parse(file, *, recurse=True):
@@ -160,6 +164,7 @@ def _parse(file, visited, recurse=True):
     parameter in the public API. The purpose of that parameter is to prevent
     loops in the include directives.
     """
+    log.debug('%sparsing %s', '  ' * len(visited), file)
     settings = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
     settings['DEFAULT']['here'] = os.path.dirname(file)
