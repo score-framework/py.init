@@ -39,10 +39,12 @@ from .config import (
 
 from .autoimport import import_from_submodules
 
+__version__ = '0.3.9'
+
 __all__ = (
-    'init', 'init_from_file', 'init_logging_from_file', 'InitializationError',
-    'ConfigurationError', 'DependencyLoop', 'ConfiguredModule',
-    'ConfiguredScore', 'parse_bool', 'parse_time_interval', 'parse_dotted_path',
-    'parse_call', 'parse_list', 'parse_host_port', 'parse_object',
-    'init_object', 'init_cache_folder', 'extract_conf', 'parse_config_file',
-    'import_from_submodules')
+    '__version__', 'init', 'init_from_file', 'init_logging_from_file',
+    'InitializationError', 'ConfigurationError', 'DependencyLoop',
+    'ConfiguredModule', 'ConfiguredScore', 'parse_bool', 'parse_time_interval',
+    'parse_dotted_path', 'parse_call', 'parse_list', 'parse_host_port',
+    'parse_object', 'init_object', 'init_cache_folder', 'extract_conf',
+    'parse_config_file', 'import_from_submodules')
