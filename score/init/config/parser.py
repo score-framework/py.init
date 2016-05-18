@@ -31,6 +31,7 @@ import warnings
 from ..exceptions import ConfigurationError
 from .helpers import parse_list
 import logging
+from glob import glob
 
 
 log = logging.getLogger(__name__)
@@ -235,18 +236,19 @@ def _parse_includes(file, visited, settings, files, includes):
     """
     if not includes:
         return settings
-    for include_file in parse_list(includes):
-        include = _parse(include_file, visited, recurse=False)
-        try:
-            if include['score.init']['based_on']:
-                import score.init
-                raise ConfigurationError(
-                    score.init,
-                    'An included file cannot be `based_on` other files')
-        except KeyError:
-            pass
-        _apply_adjustments(file, settings, include)
-        files.append(include_file)
+    for include_declaration in parse_list(includes):
+        for include_file in glob(include_declaration):
+            include = _parse(include_file, visited, recurse=False)
+            try:
+                if include['score.init']['based_on']:
+                    import score.init
+                    raise ConfigurationError(
+                        score.init,
+                        'An included file cannot be `based_on` other files')
+            except KeyError:
+                pass
+            _apply_adjustments(file, settings, include)
+            files.append(include_file)
     return settings
 
 
