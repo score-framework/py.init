@@ -25,6 +25,7 @@
 # Licensee has his registered seat, an establishment or assets.
 
 import abc
+import configparser
 import importlib
 from inspect import signature, Parameter
 import logging
@@ -42,16 +43,17 @@ log = logging.getLogger(__name__)
 def init(confdict, *, overrides={}, init_logging=True):
     """
     This function automates the process of initializing all other modules. It
-    will operate on given *confdict*, which is expected to be a 2-dimensional
-    `dict` mapping names of modules to their respective :term:`confdicts
-    <confdict>`. The recommended way of acquiring such a confdict is through
+    will operate on given *confdict*, which is expected to be a
+    :class:`configparser.ConfigParser` object or a 2-dimensional `dict` mapping
+    names of modules to their respective :term:`confdicts <confdict>`. The
+    recommended way of acquiring such a confdict is through
     :func:`.parse_config_file`, but any 2-dimensional `dict` is fine.
 
     The *confdict* should also contain the configuration for this module, which
     interprets the configuration key ``modules`` (which should be accessible as
     ``confdict['score.init']['modules']``):
 
-    :confkey:`modules` :faint:`[optional]`
+    :confkey:`modules`
         A list of module names that shall be initialized. If this value is
         missing, you will end up with an empty :class:`.ConfiguredScore` object.
 
@@ -67,22 +69,35 @@ def init(confdict, *, overrides={}, init_logging=True):
     """
     if init_logging and 'formatters' in confdict:
         import logging.config
-        # TODO: the fileConfig() function below expects a RawConfigParser
-        # instance; this function, however, has no such limitation -> convert
-        # the confdict if it is not an object of that type
-        logging.config.fileConfig(confdict, disable_existing_loggers=False)
+        # the fileConfig() function below expects a RawConfigParser instance;
+        # this function, however, has no such limitation -> convert the confdict
+        # if it is not an object of that type
+        if isinstance(confdict, configparser.RawConfigParser):
+            parser = confdict
+        else:
+            parser = configparser.RawConfigParser()
+            parser.read_dict(confdict)
+        logging.config.fileConfig(parser, disable_existing_loggers=False)
+    if isinstance(confdict, configparser.RawConfigParser):
+        _confdict = {}
+        for section in confdict:
+            _confdict[section] = {}
+            for k, v in confdict[section].items():
+                _confdict[section][k] = v
+    else:
+        _confdict = confdict
     for section in overrides:
-        if section not in confdict:
-            confdict[section] = {}
+        if section not in _confdict:
+            _confdict[section] = {}
         for key, value in overrides[section].items():
-            confdict[section][key] = value
+            _confdict[section][key] = value
     try:
-        paths = confdict['score.init']['autoimport']
+        paths = _confdict['score.init']['autoimport']
     except KeyError:
         pass
     else:
         _perform_autoimport(parse_list(paths))
-    return _init(confdict)
+    return _init(_confdict)
 
 
 def _perform_autoimport(paths):
@@ -150,7 +165,7 @@ def init_from_file(file, *, overrides={}, init_logging=True):
     See the documentation of :func:`.init` for a description of all keyword
     arguments.
     """
-    return init(parse_config_file(file),
+    return init(parse_config_file(file, return_configparser=init_logging),
                 overrides=overrides,
                 init_logging=init_logging)
 
@@ -160,7 +175,7 @@ def init_logging_from_file(file):
     Just the part of :func:`.init_from_file` that would initialize logging.
     """
     import logging.config
-    confdict = parse_config_file(file)
+    confdict = parse_config_file(file, return_configparser=True)
     if 'formatters' in confdict:
         logging.config.fileConfig(confdict, disable_existing_loggers=False)
 
@@ -202,9 +217,7 @@ class ConfiguredScore(ConfiguredModule):
     def __init__(self, confdict, modules, dependency_aliases):
         import score.init
         ConfiguredModule.__init__(self, score.init)
-        self.conf = {}
-        for section in confdict:
-            self.conf[section] = dict(confdict[section].items())
+        self.conf = confdict
         self._modules = modules
         self._module_dependency_aliases = dependency_aliases
         for alias, conf in modules.items():

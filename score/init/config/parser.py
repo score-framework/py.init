@@ -24,6 +24,7 @@
 # the discretion of STRG.AT GmbH also the competent court, in whose district the
 # Licensee has his registered seat, an establishment or assets.
 
+from collections import OrderedDict
 import configparser
 import os
 import re
@@ -37,15 +38,15 @@ from glob import glob
 log = logging.getLogger(__name__)
 
 
-def parse(file, *, recurse=True):
+def parse(file, *, recurse=True, return_configparser=False):
     """
-    Reads a configuration file and returns a :class:`configparser.ConfigParser`.
+    Reads a configuration file and returns a nested `dict`.
 
     The main feature of this function is the support for "adjustment files",
     i.e. files that do not actually define all values, but define deviations
     from another file. The function will collect the set of all values by
     recursing into the files defined in the initial file. This whole feature can
-    be disabled, though, by passing a falsey value as the *recurse* argument, in
+    be disabled, though, by passing a falsy value as the *recurse* argument, in
     which case the function just behaves like a configparser with
     :class:`configparser.ExtendedInterpolation`.
 
@@ -156,7 +157,16 @@ def parse(file, *, recurse=True):
         |bar  +  |+baz  =>  |baz
 
     """
-    return _parse(file, [], recurse)
+    parser = _parse(file, [], recurse)
+    if return_configparser:
+        return parser
+    result = OrderedDict()
+    for section in parser:
+        result[section] = OrderedDict()
+        for k, v in parser[section].items():
+            result[section][k] = v
+    del result['DEFAULT']
+    return result
 
 
 def _parse(file, visited, recurse=True):
