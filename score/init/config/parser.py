@@ -173,19 +173,15 @@ def _parse(file, visited, recurse=True):
         settings['DEFAULT']['here'] = '.'
     with open(file) as fp:
         settings.read_file(fp)
-    if not recurse:
+    if not recurse or 'score.init' not in settings:
         return settings
-    try:
-        includes = settings['score.init']['include']
-    except KeyError:
-        includes = ''
     files = []
     visited.append(os.path.abspath(file))
-    settings = _parse_bases(file, visited, settings, files)
-    settings = _parse_includes(file, visited, settings, files, includes)
+    if 'based_on' in settings['score.init']:
+        settings = _parse_bases(file, visited, settings, files)
+    if 'include' in settings['score.init']:
+        settings = _parse_includes(file, visited, settings, files)
     visited.pop()
-    if 'score.init' not in settings:
-        settings['score.init'] = {}
     try:
         settings['score.init']['_files'] = \
             settings['score.init']['_files'] + '\n' + '\n'.join(files)
@@ -202,9 +198,8 @@ def _parse_bases(file, visited, settings, files):
     :class:`.ConfigurationError` if it encounters a file that has already been
     *visited*.
     """
-    try:
-        bases_string = settings['score.init']['based_on']
-    except KeyError:
+    bases_string = settings['score.init']['based_on']
+    if not bases_string.strip():
         return settings
     adjustments = settings
     bases = []
@@ -225,7 +220,7 @@ def _parse_bases(file, visited, settings, files):
     return settings
 
 
-def _parse_includes(file, visited, settings, files, includes):
+def _parse_includes(file, visited, settings, files):
     """
     Handles the ``score.init/include`` key in the parsed *settings* of given
     configuration *file*. Will add all encountered bases to the list of *files*
@@ -234,7 +229,8 @@ def _parse_includes(file, visited, settings, files, includes):
     configuration.
     *visited*.
     """
-    if not includes:
+    includes = settings['score.init']['include']
+    if not includes.strip():
         return settings
     for include_declaration in parse_list(includes):
         for include_file in glob(include_declaration):
