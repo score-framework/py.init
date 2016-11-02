@@ -26,12 +26,13 @@
 
 from .helpers import (
     parse_bool, parse_time_interval, parse_dotted_path, parse_call, parse_list,
-    parse_host_port, parse_object, init_object, init_cache_folder, extract_conf)
+    parse_host_port, parse_object, parse_json, init_object, init_cache_folder,
+    extract_conf)
 
 from .parser import parse as parse_config_file
 
 
 __all__ = (
     'parse_bool', 'parse_time_interval', 'parse_dotted_path', 'parse_call',
-    'parse_list', 'parse_host_port', 'parse_object', 'init_object',
-    'init_cache_folder', 'extract_conf', 'parse_config_file')
+    'parse_list', 'parse_host_port', 'parse_object', 'parse_json',
+    'init_object', 'init_cache_folder', 'extract_conf', 'parse_config_file')

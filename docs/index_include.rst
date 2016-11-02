@@ -55,9 +55,11 @@ Helper functions
 
 .. autofunction:: score.init.parse_call
 
-.. autofunction:: score.init.extract_conf
-
 .. autofunction:: score.init.parse_object
+
+.. autofunction:: score.init.parse_json
+
+.. autofunction:: score.init.extract_conf
 
 .. autofunction:: score.init.init_cache_folder
 

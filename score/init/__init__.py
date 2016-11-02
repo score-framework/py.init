@@ -34,8 +34,8 @@ from .initializer import (
 
 from .config import (
     parse_bool, parse_time_interval, parse_dotted_path, parse_call, parse_list,
-    parse_host_port, parse_object, init_object, init_cache_folder, extract_conf,
-    parse_config_file)
+    parse_host_port, parse_object, parse_json, init_object, init_cache_folder,
+    extract_conf, parse_config_file)
 
 from .autoimport import import_from_submodules
 
@@ -45,6 +45,6 @@ __all__ = (
     'init', 'init_from_file', 'init_logging_from_file', 'InitializationError',
     'ConfigurationError', 'DependencyLoop', 'ConfiguredModule',
     'ConfiguredScore', 'parse_bool', 'parse_time_interval', 'parse_dotted_path',
-    'parse_call', 'parse_list', 'parse_host_port', 'parse_object',
+    'parse_call', 'parse_list', 'parse_host_port', 'parse_object', 'parse_json',
     'init_object', 'init_cache_folder', 'extract_conf', 'parse_config_file',
     'import_from_submodules')

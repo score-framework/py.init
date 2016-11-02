@@ -25,10 +25,12 @@
 # Licensee has his registered seat, an establishment or assets.
 
 import warnings
+import collections
 import configparser
+import importlib
+import json
 import os
 import re
-import importlib
 
 
 def parse_bool(value):
@@ -232,6 +234,14 @@ def parse_object(confdict, key, args=tuple(), kwargs={}):
             value = parse_list(value)
         kwargs[key] = value
     return cls(*args, **kwargs)
+
+
+def parse_json(value):
+    """
+    Converts a string value to a python object.
+    Currently this function is just a wrapper around :func:`json.loads`.
+    """
+    return json.loads(value, object_pairs_hook=collections.OrderedDict)
 
 
 def init_object(*args, **kwargs):
