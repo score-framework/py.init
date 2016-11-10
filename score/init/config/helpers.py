@@ -46,6 +46,27 @@ def parse_bool(value):
         raise ValueError('"%s" does not describe a boolean' % value)
 
 
+time_interval_multipliers = {
+    'ms': 0.001,
+    'millisecond': 0.001,
+    'milliseconds': 0.001,
+    's': 1,
+    'sec': 1,
+    'second': 1,
+    'seconds': 1,
+    'm': 60,
+    'min': 60,
+    'minute': 60,
+    'minutes': 60,
+    'h': 60 * 60,
+    'hour': 60 * 60,
+    'hours': 60 * 60,
+    'd': 60 * 60 * 24,
+    'day': 60 * 60 * 24,
+    'days': 60 * 60 * 24,
+}
+
+
 def parse_time_interval(value):
     """
     Converts a human readable time interval string to a float in seconds.
@@ -61,34 +82,13 @@ def parse_time_interval(value):
     >>> parse_time_interval('365days')
     31536000.0
     """
-    multiplier = {
-        'ms': 0.001,
-        'millisecond': 0.001,
-        'milliseconds': 0.001,
-        's': 1,
-        'sec': 1,
-        'second': 1,
-        'seconds': 1,
-        'm': 60,
-        'min': 60,
-        'minute': 60,
-        'minutes': 60,
-        'h': 60*60,
-        'hour': 60*60,
-        'hours': 60*60,
-        'd': 60*60*24,
-        'day': 60*60*24,
-        'days': 60*60*24,
-    }
-    config_error = ValueError(
-        '"%s" does not describe a valid time interval' % value)
-    try:
-        matches = re.search('^\s*(\d+)\s*([a-z]+)\s*$', value.lower())
-        return float(matches.group(1)) * multiplier[matches.group(2)]
-    except AttributeError:
-        raise config_error
-    except KeyError:
-        raise config_error
+    value = value.strip()
+    if value == '0':
+        return float(0)
+    match = re.match(r'^(\d+)\s*([a-z]+)$', value.lower())
+    if match is None or match.group(2) not in time_interval_multipliers:
+        raise ValueError('"%s" does not describe a valid time interval' % value)
+    return float(match.group(1)) * time_interval_multipliers[match.group(2)]
 
 
 def parse_dotted_path(value):
