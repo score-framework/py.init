@@ -4,19 +4,28 @@ from score.init import parse_time_interval
 
 
 def test_empty():
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         parse_time_interval('')
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         parse_time_interval('\n\n')
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         parse_time_interval(None)
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         parse_time_interval(False)
 
 
 def test_invalid_value():
     with pytest.raises(ValueError):
         parse_time_interval('1 year')
+
+
+def test_zero():
+    assert parse_time_interval('0') == 0
+    assert parse_time_interval(' 0') == 0
+    assert parse_time_interval('0 ') == 0
+    assert parse_time_interval('    0 ') == 0
+    with pytest.raises(ValueError):
+        parse_time_interval('00')
 
 
 def test_valid_value():

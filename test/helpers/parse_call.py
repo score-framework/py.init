@@ -11,7 +11,7 @@ def test_empty():
 
 
 def test_invalid_function():
-    with pytest.raises(ValueError):
+    with pytest.raises(ImportError):
         parse_call('foo.bar()')
 
 

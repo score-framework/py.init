@@ -11,7 +11,7 @@ def test_empty():
 
 
 def test_invalid_value():
-    with pytest.raises(ValueError):
+    with pytest.raises(ImportError):
         parse_dotted_path('foo.bar.baz')
     with pytest.raises(ValueError):
         parse_dotted_path('foobar')

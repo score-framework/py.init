@@ -102,10 +102,8 @@ def parse_dotted_path(value):
     """
     if not isinstance(value, str):
         return value
-    value_error = ValueError(
-        '"%s" does not describe a valid dotted path' % value)
     if '.' not in value:
-        raise value_error
+        raise ValueError('"%s" does not describe a valid dotted path' % value)
     module, classname = value.rsplit('.', 1)
     return getattr(importlib.import_module(module), classname)
 
