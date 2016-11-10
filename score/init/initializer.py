@@ -35,7 +35,6 @@ import pkgutil
 import sys
 from .config import parse_list, parse_config_file
 from .exceptions import InitializationError, ConfigurationError, DependencyLoop
-import pip
 
 
 log = logging.getLogger(__name__)
@@ -290,21 +289,14 @@ def _collect_modules(modconf):
 
 def _import(module_name):
     """
-    Will import a given python package, using pip to install it, if it could not
-    be found.
+    Will import and return a python package with given *module_name*. If the
+    module cannot be found, this function will instead return `None`.
     """
     try:
         return importlib.import_module(module_name)
     except ImportError as e:
         if e.name != module_name:
             raise
-    log.warn("Module `%s' not found, installing" % module_name)
-    if pip.main(['install', module_name]) == 0:
-        try:
-            return importlib.import_module(module_name)
-        except ImportError as e:
-            if e.name != module_name:
-                raise
     return None
 
 
