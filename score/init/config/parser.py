@@ -1,3 +1,4 @@
+# vim: set fileencoding=UTF-8
 # Copyright © 2015,2016 STRG.AT GmbH, Vienna, Austria
 #
 # This file is part of the The SCORE Framework.
