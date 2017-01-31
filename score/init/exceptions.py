@@ -33,7 +33,10 @@ class InitializationError(Exception):
     """
 
     def __init__(self, module, *args, **kwargs):
-        self.module = module
+        if args and isinstance(args[0], str):
+            args = list(args)
+            modulename = module if isinstance(module, str) else module.__name__
+            args[0] = '[%s] %s' % (modulename, args[0])
         Exception.__init__(self, *args, **kwargs)
 
 
