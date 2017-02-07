@@ -32,6 +32,7 @@ import importlib
 import json
 import os
 import re
+import datetime
 
 
 def parse_bool(value):
@@ -66,6 +67,46 @@ time_interval_multipliers = {
     'day': 60 * 60 * 24,
     'days': 60 * 60 * 24,
 }
+
+
+def parse_datetime(value):
+    """
+    Returns the given value as a `datetime` without timezone information.
+
+    The following formats are currently supported:
+
+    * ``YYYY-MM-DD HH:II``
+    * ``YYYY-MM-DD HH:II:SS``
+    * ``YYYY-MM-DD HH:II:SS.microsecond``
+    * timestamp
+    """
+
+    if re.match(r'^\d+$', value):
+        return datetime.datetime.fromtimestamp(int(value))
+    regex = re.compile(
+        r'''
+        ^\s*     (?P<year>   \d{4})
+        \s*-\s*  (?P<month>  \d{2})
+        \s*-\s*  (?P<day>    \d{2})
+        \s+      (?P<hour>   \d{2})
+        \s*:\s*  (?P<minute> \d{2})
+        (\s*:\s* (?P<second> \d{2}))?
+        (\.      (?P<micros> \d+))?
+        \s*$
+        ''',
+        re.VERBOSE)
+    match = regex.match(value)
+    if not match:
+        raise ValueError('"%s" does not describe a valid datetime' % value)
+    return datetime.datetime(
+        int(match.group('year')),
+        int(match.group('month')),
+        int(match.group('day')),
+        int(match.group('hour')),
+        int(match.group('minute')),
+        int(match.group('second')) if match.group('second') else 0,
+        int(match.group('micros')) if match.group('micros') else 0,
+    )
 
 
 def parse_time_interval(value):

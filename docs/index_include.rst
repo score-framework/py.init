@@ -49,6 +49,8 @@ Helper functions
 
 .. autofunction:: score.init.parse_host_port
 
+.. autofunction:: score.init.parse_datetime
+
 .. autofunction:: score.init.parse_time_interval
 
 .. autofunction:: score.init.parse_dotted_path
