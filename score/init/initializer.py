@@ -40,7 +40,7 @@ from .exceptions import InitializationError, ConfigurationError, DependencyLoop
 log = logging.getLogger(__name__)
 
 
-def init(confdict, *, overrides={}, init_logging=True):
+def init(confdict, *, overrides={}, init_logging=True, finalize=True):
     """
     This function automates the process of initializing all other modules. It
     will operate on given *confdict*, which is expected to be a
@@ -97,7 +97,7 @@ def init(confdict, *, overrides={}, init_logging=True):
         pass
     else:
         _perform_autoimport(parse_list(paths))
-    return _init(_confdict)
+    return _init(_confdict, finalize)
 
 
 def _perform_autoimport(paths):
@@ -120,7 +120,7 @@ def _perform_autoimport(paths):
                 __import__('%s.%s' % (path, modname))
 
 
-def _init(confdict):
+def _init(confdict, finalize=True):
     try:
         modconf = parse_list(confdict['score.init']['modules'])
     except KeyError:
@@ -154,7 +154,8 @@ def _init(confdict):
                 (alias, repr(conf)))
         initialized[alias] = conf
     score = ConfiguredScore(confdict, initialized, dependency_aliases)
-    score._finalize()
+    if finalize:
+        score._finalize()
     return score
 
 
