@@ -46,12 +46,12 @@ class DependencyLoop(InitializationError):
     :meth:`.ConfiguredModule._finalize`.
     """
 
-    def __init__(self, module, operation, loop):
-        message = \
-            ('Circular dependency during %s between the following modules:\n - '
-             % (operation)) + '\n - '.join(loop)
-        super().__init__(module, message)
+    def __init__(self, loop, *, module='score.init'):
         self.loop = loop
+        message = (
+            'Circular dependency between the following modules:\n - ' +
+            '\n - '.join(loop))
+        super().__init__(module, message)
 
 
 class ConfigurationError(InitializationError):

@@ -30,6 +30,9 @@ Configuration
 
 .. autoclass:: score.init.ConfiguredModule
 
+.. autoclass:: score.init.DependencySolver
+
+
 Exceptions
 ----------
 
@@ -64,4 +67,3 @@ Helper functions
 .. autofunction:: score.init.extract_conf
 
 .. autofunction:: score.init.init_cache_folder
-

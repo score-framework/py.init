@@ -33,7 +33,8 @@ import logging
 import pkgutil
 import sys
 from .config import parse_list, parse_config_file
-from .exceptions import InitializationError, ConfigurationError, DependencyLoop
+from .exceptions import InitializationError, ConfigurationError
+from .dependency import DependencySolver
 
 
 log = logging.getLogger(__name__)
@@ -374,38 +375,13 @@ def _remove_missing_optional_dependencies(modules, dependency_map,
 
 
 def _sort_modules(dependency_map, dependency_aliases, operation):
-    sorted_ = []
-    dependencies = {}
+    depsolv = DependencySolver()
     for alias, module_dependencies in dependency_map.items():
-        deps = set()
+        depsolv.add(alias)
         for dep in module_dependencies:
             if dep == 'score':
                 continue
             if alias in dependency_aliases and dep in dependency_aliases[alias]:
                 dep = dependency_aliases[alias][dep]
-            deps.add(dep)
-        if not deps:
-            sorted_.append(alias)
-        else:
-            dependencies[alias] = deps
-    updated = True
-    while updated:
-        updated = False
-        for alias in list(dependencies.keys()):
-            deps = dependencies[alias]
-            to_remove = deps.intersection(sorted_)
-            if not to_remove:
-                continue
-            updated = True
-            if to_remove == deps:
-                sorted_.append(alias)
-                del dependencies[alias]
-            else:
-                deps.difference_update(sorted_)
-    if dependencies:
-        alias = next(iter(dependencies.keys()))
-        loop = [alias, dependencies[alias].pop()]
-        while loop[0] != loop[-1]:
-            loop.append(dependencies[loop[-1]].pop())
-        raise DependencyLoop(__package__, operation, loop)
-    return sorted_
+            depsolv.add(alias, dep)
+    return depsolv.solve()
