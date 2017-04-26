@@ -42,7 +42,7 @@ from .config import (
 
 from .autoimport import import_from_submodules
 
-__version__ = '0.5.1'
+__version__ = '0.5.2'
 
 __all__ = (
     'init', 'init_from_file', 'init_logging_from_file', 'InitializationError',
