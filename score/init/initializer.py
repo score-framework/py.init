@@ -137,6 +137,11 @@ def _init(confdict, finalize=True):
         modconf = {}
         if alias in confdict:
             modconf = confdict[alias]
+        for key in confdict:
+            if key.startswith('%s:' % alias):
+                key_prefix = key[len(alias)+1:] + '.'
+                modconf.update((key_prefix + k, v)
+                               for k, v in confdict[key].items())
         kwargs = {}
         for dep in module_dependencies:
             try:
