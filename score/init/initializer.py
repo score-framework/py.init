@@ -30,7 +30,6 @@ import configparser
 import importlib
 from inspect import signature, Parameter
 import logging
-import networkx as nx
 import pkgutil
 import sys
 from .config import parse_list, parse_config_file
@@ -376,20 +375,37 @@ def _remove_missing_optional_dependencies(modules, dependency_map,
 
 def _sort_modules(dependency_map, dependency_aliases, operation):
     sorted_ = []
-    graph = nx.DiGraph()
+    dependencies = {}
     for alias, module_dependencies in dependency_map.items():
-        if not module_dependencies:
-            graph.add_edge(None, alias)
+        deps = set()
         for dep in module_dependencies:
-            try:
+            if dep == 'score':
+                continue
+            if alias in dependency_aliases and dep in dependency_aliases[alias]:
                 dep = dependency_aliases[alias][dep]
-            except KeyError:
-                pass
-            graph.add_edge(dep, alias)
-    for loop in nx.simple_cycles(graph):
+            deps.add(dep)
+        if not deps:
+            sorted_.append(alias)
+        else:
+            dependencies[alias] = deps
+    updated = True
+    while updated:
+        updated = False
+        for alias in list(dependencies.keys()):
+            deps = dependencies[alias]
+            to_remove = deps.intersection(sorted_)
+            if not to_remove:
+                continue
+            updated = True
+            if to_remove == deps:
+                sorted_.append(alias)
+                del dependencies[alias]
+            else:
+                deps.difference_update(sorted_)
+    if dependencies:
+        alias = next(iter(dependencies.keys()))
+        loop = [alias, dependencies[alias].pop()]
+        while loop[0] != loop[-1]:
+            loop.append(dependencies[loop[-1]].pop())
         raise DependencyLoop(__package__, operation, loop)
-    for alias in nx.topological_sort(graph):
-        if alias is None:
-            continue
-        sorted_.append(alias)
     return sorted_

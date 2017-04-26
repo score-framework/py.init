@@ -51,6 +51,7 @@ class DependencyLoop(InitializationError):
             ('Circular dependency during %s between the following modules:\n - '
              % (operation)) + '\n - '.join(loop)
         super().__init__(module, message)
+        self.loop = loop
 
 
 class ConfigurationError(InitializationError):
