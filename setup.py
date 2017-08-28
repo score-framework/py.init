@@ -35,7 +35,7 @@ with open(os.path.join(here, 'README.rst')) as f:
 
 setup(
     name='score.init',
-    version='0.5.4',
+    version='0.5.5',
     description='Automatic initialization of The SCORE Framework',
     long_description=README,
     author='strg.at',
