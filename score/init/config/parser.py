@@ -272,7 +272,7 @@ def _merge_settings(*settings):
             if section == 'DEFAULT':
                 continue
             if section not in result:
-                result[section] = {}
+                result[section] = OrderedDict()
             for key in other[section]:
                 value = other[section][key]
                 if key in other['DEFAULT'] and other['DEFAULT'][key] == value:
@@ -365,7 +365,7 @@ def _apply_adjustment(file, settings, section, key, value):
         settings[section][key] = _apply_replace(section, key, original, value)
     else:
         if section not in settings:
-            settings[section] = {}
+            settings[section] = OrderedDict()
         settings[section][key] = value
 
 

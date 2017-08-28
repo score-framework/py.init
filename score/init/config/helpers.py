@@ -33,6 +33,7 @@ import json
 import os
 import re
 import datetime
+from collections import OrderedDict
 
 
 def parse_bool(value):
@@ -315,7 +316,7 @@ def init_cache_folder(confdict, key, autopurge=False):
             'Configured cache folder "%s" is not writable' % folder)
     if not autopurge:
         return folder
-    confdict = dict(confdict.items())
+    confdict = OrderedDict(confdict.items())
     del confdict[key]
     confitems = list(confdict.items())
     confitems.sort()
@@ -356,7 +357,7 @@ def extract_conf(configuration, prefix, defaults=dict()):
     >>> extract_conf(conf, 'spam.', defaults)
     {'eggs': 'Eggs with Spam!', 'bacon.eggs': 'Spam, bacon and eggs'}
     """
-    conf = dict(defaults.items())
+    conf = OrderedDict(defaults.items())
     for key, value in configuration.items():
         if key.startswith(prefix):
             conf[key[len(prefix):]] = value

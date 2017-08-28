@@ -35,6 +35,7 @@ import sys
 from .config import parse_list, parse_config_file
 from .exceptions import InitializationError, ConfigurationError
 from .dependency import DependencySolver
+from collections import OrderedDict
 
 
 log = logging.getLogger(__name__)
@@ -79,16 +80,16 @@ def init(confdict, *, overrides={}, init_logging=True, finalize=True):
             parser.read_dict(confdict)
         logging.config.fileConfig(parser, disable_existing_loggers=False)
     if isinstance(confdict, configparser.RawConfigParser):
-        _confdict = {}
+        _confdict = OrderedDict()
         for section in confdict:
-            _confdict[section] = {}
+            _confdict[section] = OrderedDict()
             for k, v in confdict[section].items():
                 _confdict[section][k] = v
     else:
         _confdict = confdict
     for section in overrides:
         if section not in _confdict:
-            _confdict[section] = {}
+            _confdict[section] = OrderedDict()
         for key, value in overrides[section].items():
             _confdict[section][key] = value
     try:
@@ -134,7 +135,7 @@ def _init(confdict, finalize=True):
     for alias in sorted_aliases:
         modname = modules[alias]
         module_dependencies = dependency_map[alias]
-        modconf = {}
+        modconf = OrderedDict()
         if alias in confdict:
             modconf = confdict[alias]
         for key in confdict:
@@ -269,7 +270,7 @@ class ConfiguredScore(ConfiguredModule):
 
 
 def _collect_modules(modconf):
-    modules = {}
+    modules = OrderedDict()
     dependency_aliases = {}
     for line in modconf:
         parts = line.split(':', 2)
@@ -308,7 +309,7 @@ def _import(module_name):
 
 def _collect_dependencies(modules, dependency_aliases):
     missing = []
-    dependency_map = dict()
+    dependency_map = {}
     for alias, modname in modules.items():
         if modname == 'score.init':
             continue
