@@ -31,7 +31,7 @@ def test_single_module_success():
     assert 'single_module_success' in conf._modules
     mod = conf._modules['single_module_success']
     assert isinstance(mod, ConfiguredModule)
-    assert mod._module == 'test.initializer.single_module_success'
+    assert mod._module_name == 'test.initializer.single_module_success'
 
 
 def test_dependency_success():
@@ -52,8 +52,8 @@ def test_dependency_success():
     mod2 = conf._modules['pkg2']
     assert isinstance(mod1, ConfiguredModule)
     assert isinstance(mod2, ConfiguredModule)
-    assert mod1._module == 'test.initializer.dependency_success.pkg1'
-    assert mod2._module == 'test.initializer.dependency_success.pkg2'
+    assert mod1._module_name == 'test.initializer.dependency_success.pkg1'
+    assert mod2._module_name == 'test.initializer.dependency_success.pkg2'
 
 
 def test_missing_dependency():

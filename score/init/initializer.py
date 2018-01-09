@@ -1,4 +1,3 @@
-# vim: set fileencoding=UTF-8
 # Copyright © 2015-2017 STRG.AT GmbH, Vienna, Austria
 #
 # This file is part of the The SCORE Framework.
@@ -36,6 +35,7 @@ from .config import parse_list, parse_config_file
 from .exceptions import InitializationError, ConfigurationError
 from .dependency import DependencySolver
 from collections import OrderedDict
+from types import ModuleType
 
 
 log = logging.getLogger(__name__)
@@ -196,7 +196,9 @@ class ConfiguredModule(metaclass=abc.ABCMeta):
     _finalized = False
 
     def __init__(self, module):
-        self._module = module
+        if isinstance(module, ModuleType):
+            module = module.__name__
+        self._module_name = module
 
     def _finalize(self):
         """
@@ -207,11 +209,15 @@ class ConfiguredModule(metaclass=abc.ABCMeta):
         pass
 
     @property
+    def _module(self):
+        return _import(self._module_name)
+
+    @property
     def log(self):
         try:
             return self._log
         except AttributeError:
-            self._log = logging.getLogger(self._module.__name__)
+            self._log = logging.getLogger(self._module_name)
             return self._log
 
 
