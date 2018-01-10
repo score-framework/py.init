@@ -1,4 +1,3 @@
-# vim: set fileencoding=UTF-8
 # Copyright © 2015-2018 STRG.AT GmbH, Vienna, Austria
 #
 # This file is part of the The SCORE Framework.
@@ -125,6 +124,8 @@ def parse_time_interval(value):
     >>> parse_time_interval('365days')
     31536000.0
     """
+    if value == 0:
+        return value
     value = value.strip()
     if value == '0':
         return float(0)
