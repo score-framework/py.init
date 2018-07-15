@@ -1,5 +1,5 @@
 # vim: set fileencoding=UTF-8
-# Copyright © 2015-2018 STRG.AT GmbH, Vienna, Austria
+# Copyright © 2015-2017 STRG.AT GmbH, Vienna, Austria
 #
 # This file is part of the The SCORE Framework.
 #
@@ -42,7 +42,7 @@ from .config import (
 
 from .autoimport import import_from_submodules
 
-__version__ = '0.5.6'
+__version__ = '0.5.7'
 
 __all__ = (
     'init', 'init_from_file', 'init_logging_from_file', 'InitializationError',
