@@ -180,6 +180,7 @@ def _parse(file, visited, recurse=True):
     settings = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
     settings['DEFAULT']['here'] = os.path.dirname(file)
+    settings['DEFAULT']['cwd'] = '.'
     if not settings['DEFAULT']['here']:
         settings['DEFAULT']['here'] = '.'
     with open(file) as fp:
