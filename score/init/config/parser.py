@@ -179,6 +179,7 @@ def _parse(file, visited, recurse=True):
     log.debug('%sparsing %s', '  ' * len(visited), file)
     settings = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
+    settings.optionxform = lambda option: option
     settings['DEFAULT']['here'] = os.path.dirname(file)
     settings['DEFAULT']['cwd'] = '.'
     if not settings['DEFAULT']['here']:
