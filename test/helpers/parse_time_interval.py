@@ -10,8 +10,9 @@ def test_empty():
         parse_time_interval('\n\n')
     with pytest.raises(Exception):
         parse_time_interval(None)
-    with pytest.raises(Exception):
-        parse_time_interval(False)
+    # The next one was unexpected, but true anyway
+    # since bool is a subclass of int
+    assert parse_time_interval(False) == 0
 
 
 def test_invalid_value():
