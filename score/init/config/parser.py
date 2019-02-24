@@ -136,15 +136,15 @@ def parse(file, *, recurse=True, return_configparser=False):
 
     The only issue with this format that has no line numbers is the question
     where to insert the additions. The solution to this problem is: right after
-    the last anchor, or, if there was no anchor, at the beginning of the string.
+    the last anchor, or, if there was no anchor, at the end of the string.
 
     Also note that all removals also act as anchors for this purpose.
 
     Here are some examples demonstrating the above::
 
-        |foo     |+baz      |baz
-        |bar  +  |      =>  |foo
-                            |bar
+        |foo     |+baz      |foo
+        |bar  +  |      =>  |bar
+                            |baz
 
         |foo     | bar      |foo
         |bar  +  |+baz  =>  |bar
@@ -380,7 +380,7 @@ def _apply_diff(section, key, original, diff):
     lines = parse_list(original)
     diff_lines = map(lambda x: x.strip(),
                      parse_list(re.sub(r'^\s*<diff>\s*', '', diff)))
-    anchor = 0
+    anchor = len(lines)
     for line in diff_lines:
         if line[0] not in '-+':
             try:
