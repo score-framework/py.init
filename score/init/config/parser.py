@@ -240,9 +240,8 @@ def _parse_includes(file, visited, settings, files):
     Handles the ``score.init/include`` key in the parsed *settings* of given
     configuration *file*. Will add all encountered bases to the list of *files*
     encountered while handling the the current file. Will also raise a
-    :class:`.ConfigurationError` if one of the includes has a ``based_on``
-    configuration.
-    *visited*.
+    :class:`.ConfigurationError` if it encounters a file that has already been
+    *visited* or if one of the includes has a ``based_on`` configuration.
     """
     includes = settings['score.init']['include']
     if not includes.strip():
