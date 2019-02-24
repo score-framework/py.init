@@ -192,8 +192,10 @@ def _parse(file, visited, recurse=True):
     visited.append(os.path.abspath(file))
     if 'based_on' in settings['score.init']:
         settings = _parse_bases(file, visited, settings, files)
+        del settings['score.init']['based_on']
     if 'include' in settings['score.init']:
         settings = _parse_includes(file, visited, settings, files)
+        del settings['score.init']['include']
     visited.pop()
     try:
         settings['score.init']['_files'] = \
