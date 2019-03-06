@@ -183,10 +183,10 @@ def _parse(file, visited, recurse=True):
     settings = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
     settings.optionxform = lambda option: option
-    settings['DEFAULT']['here'] = os.path.dirname(file)
-    settings['DEFAULT']['cwd'] = '.'
+    settings['DEFAULT']['here'] = os.path.abspath(os.path.dirname(file))
+    settings['DEFAULT']['cwd'] = os.path.abspath('.')
     if not settings['DEFAULT']['here']:
-        settings['DEFAULT']['here'] = '.'
+        settings['DEFAULT']['here'] = settings['DEFAULT']['cwd']
     with open(file) as fp:
         settings.read_file(fp)
     if not recurse or 'score.init' not in settings:
