@@ -163,10 +163,13 @@ def parse(file, *, recurse=True, return_configparser=False):
         return parser
     result = OrderedDict()
     for section in parser:
+        if section in ('DEFAULT'):
+            continue
         result[section] = OrderedDict()
         for k, v in parser[section].items():
+            if k in ('here', 'cwd') and parser['DEFAULT'][k] == v:
+                continue
             result[section][k] = v
-    del result['DEFAULT']
     return result
 
 
